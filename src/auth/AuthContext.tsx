@@ -34,15 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s) { setProfile(null); return; }
-    const { data } = await supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle();
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle();
+    if (error) {
+      console.error('Supabase profil so‘rovi xatosi:', error);
+      setBlockedMessage(`Profilni yuklashda xatolik: ${error.message}`);
+      setProfile(null);
+      return;
+    }
     const p = data as Profile | null;
-    if (!p || !p.is_active) {
-      // Faol bo‘lmagan hisob tizimda qola olmaydi
+    if (!p) {
+      setBlockedMessage('Ushbu akkaunt uchun profil topilmadi. Administratorga murojaat qiling.');
+      setProfile(null);
+      return;
+    }
+    if (!p.is_active) {
       setBlockedMessage('Hisobingiz faol emas. Administratorga murojaat qiling.');
       await supabase.auth.signOut();
       setProfile(null);
       return;
     }
+    setBlockedMessage(null);
     setProfile(p);
   }, []);
 
