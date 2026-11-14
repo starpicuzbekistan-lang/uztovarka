@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-surface text-ink font-sans antialiased; }
+  input, select, textarea, button { font: inherit; }
+  :focus-visible { @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-white; }
+}
+
+@layer components {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .prose-uz { @apply text-[15px] leading-7 text-ink-soft; }
+  .prose-uz h2 { @apply mt-6 mb-2 text-lg font-bold text-ink; }
+  .prose-uz h3 { @apply mt-5 mb-1.5 text-base font-semibold text-ink; }
+  .prose-uz p { @apply my-3; }
+  .prose-uz ul { @apply my-3 list-disc pl-5 space-y-1; }
+  .prose-uz ol { @apply my-3 list-decimal pl-5 space-y-1; }
+  .prose-uz strong { @apply text-ink; }
+  .prose-uz a { @apply text-ink underline decoration-brand decoration-2 underline-offset-2; }
+  .prose-uz img { @apply my-4 rounded-xl w-full h-auto; }
+  .prose-uz em { @apply text-ink; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

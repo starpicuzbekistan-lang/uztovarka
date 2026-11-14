@@ -1,0 +1,22 @@
+# Mahalliy Supabase (supabase start) uchun. Bulutdagi loyihada bu sozlamalar Dashboard orqali o‘rnatiladi (README ga qarang).
+project_id = "uztovarka-hub"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/parol-o-rnatish"]
+# Ommaviy ro‘yxatdan o‘tish O‘CHIRILGAN. Foydalanuvchilarni faqat administrator taklif qiladi.
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits"
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+
+[functions.admin-users]
+verify_jwt = true
