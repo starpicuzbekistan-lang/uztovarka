@@ -194,7 +194,7 @@ function HistoryModal({ row, onClose }: { row: Row; onClose: () => void }) {
           <li key={h.id} className="rounded-xl border border-neutral-200 p-3 text-sm">
             <div className="flex justify-between"><b>{HIST_UZ[h.action] ?? h.action}</b><span className="text-xs text-neutral-400">{formatDateTimeUz(h.created_at)}</span></div>
             <div className="text-xs text-neutral-500">{h.by?.full_name ?? 'Tizim'}</div>
-            {(h.old_value || h.new_value) && <div className="mt-1 text-xs text-neutral-600">{h.old_value ? JSON.stringify(h.old_value) : ''} {h.old_value && h.new_value ? '→' : ''} {h.new_value ? JSON.stringify(h.new_value) : ''}</div>}
+           (h.old_value != null || h.new_value != null) && <div className="mt-1 text-xs text-neutral-600">{h.old_value ? JSON.stringify(h.old_value) : ''} {h.old_value && h.new_value ? '→' : ''} {h.new_value ? JSON.stringify(h.new_value) : ''}</div>}
             {h.note && <div className="mt-1">Izoh: {h.note}</div>}
           </li>
         ))}
