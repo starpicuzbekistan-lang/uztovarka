@@ -14,7 +14,7 @@ const ACTION_UZ: Record<string, string> = {
 };
 const ENTITY_UZ: Record<string, string> = {
   daily_reports: 'Kunlik hisobot', kpi_setting_versions: 'KPI sozlamalari', salary_adjustments: 'Oylik tuzatishi', payroll_calculations: 'Oylik hisob-kitobi', payroll_payments: 'To‘lov',
-  products: 'Mahsulot', sets: 'Nabor', scripts: 'Skript', articles: 'Maqola', profiles: 'Profil', announcements: 'E’lon', attendance_records: 'Davomat', auth_user: 'Foydalanuvchi', payroll_periods: 'Oylik davri',
+  bundle_builder_settings: 'Nabor tuzish sozlamalari', products: 'Mahsulot', sets: 'Nabor', scripts: 'Skript', articles: 'Maqola', profiles: 'Profil', announcements: 'E’lon', attendance_records: 'Davomat', auth_user: 'Foydalanuvchi', payroll_periods: 'Oylik davri',
 };
 const PAGE = 50;
 

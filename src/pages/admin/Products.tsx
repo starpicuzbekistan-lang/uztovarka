@@ -148,7 +148,7 @@ function ProductEditor({ initial, cats, onClose, onSaved }: { initial: { id: str
               <option value="">Tanlanmagan</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </Field>
-          <Field label="Narxi (so‘m)" error={errs.price} hint="Bo‘sh qoldirilsa, “Narx kiritilmagan” ko‘rinadi."><Input inputMode="numeric" value={f.price} onChange={(e) => set('price', e.target.value)} /></Field>
+          <Field label="Sotuv narxi (so‘m)" error={errs.price} hint="Bo‘sh qoldirilsa, “Narx kiritilmagan” ko‘rinadi."><Input inputMode="numeric" value={f.price} onChange={(e) => set('price', e.target.value)} /></Field>
           <Field label="Mavjudlik"><Select value={f.availability} onChange={(e) => set('availability', e.target.value as Form['availability'])}>{Object.entries(AVAILABILITY_UZ).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
           <Field label="Holati"><Select value={f.status} onChange={(e) => set('status', e.target.value as Status)}><option value="draft">Qoralama</option><option value="published">Nashr etilgan</option><option value="archived">Arxivlangan</option></Select></Field>
           <Field label="Miqdor / hajm"><Input value={f.quantity_info} onChange={(e) => set('quantity_info', e.target.value)} /></Field>

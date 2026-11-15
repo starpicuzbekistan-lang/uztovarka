@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { CoverImage } from '@/components/Media';
-import { Badge, Chip, DemoBadge, EmptyState, ErrorState, Input, LoadingBlock, PageHeader, Segmented } from '@/components/ui';
+import { Badge, Chip, DemoBadge, EmptyState, ErrorState, Input, LoadingBlock, PageHeader } from '@/components/ui';
 import { formatUzs } from '@/lib/format';
 import { AVAILABILITY_UZ } from '@/lib/uz';
+import BundleBuilder from './BundleBuilder';
 
 export interface ProductRow {
   id: string; sku: string; name: string; description: string | null; price_uzs: number | null; availability: keyof typeof AVAILABILITY_UZ; is_demo: boolean;
@@ -21,7 +22,7 @@ export const availTone = (a: string) => (a === 'available' ? 'green' : a === 'li
 export const firstImage = (imgs: { path: string; position: number }[]) => [...imgs].sort((a, b) => a.position - b.position)[0]?.path ?? null;
 
 export default function Catalog() {
-  const [tab, setTab] = useState<'products' | 'sets'>('sets');
+  const [tab, setTab] = useState<'products' | 'sets' | 'builder'>('sets');
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState<string>('all');
   const [avail, setAvail] = useState<'all' | 'available'>('all');
@@ -49,26 +50,32 @@ export default function Catalog() {
     (avail === 'all' || s.availability === 'available') &&
     (!term || s.name.toLowerCase().includes(term) || s.code.toLowerCase().includes(term) || s.items.some((i) => i.product?.name.toLowerCase().includes(term))));
 
-  const active = tab === 'products' ? products : sets;
+  const active = tab === 'sets' ? sets : products;
 
   return (
     <div className="space-y-3">
       <PageHeader title="Mahsulotlar" />
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'sets', label: 'Naborlar' }, { value: 'products', label: 'Mahsulotlar' }]} />
+      <div role="tablist" className="grid grid-cols-3 gap-1 rounded-xl bg-neutral-200/60 p-1">
+        {([{ value: 'sets', label: 'Naborlar' }, { value: 'products', label: 'Mahsulotlar' }, { value: 'builder', label: 'Nabor tuzish' }] as const).map(t => (
+          <button key={t.value} role="tab" aria-selected={tab === t.value} onClick={() => { setTab(t.value); setSearch(''); }} className={`min-w-0 rounded-lg px-1 py-2.5 text-[12px] font-medium sm:text-sm ${tab === t.value ? 'bg-white text-ink shadow-sm' : 'text-neutral-600'}`}>{t.label}</button>
+        ))}
+      </div>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
         <Input type="search" placeholder={tab === 'sets' ? 'Nabor nomi, kodi yoki tarkibi bo‘yicha qidirish' : 'Nomi yoki kodi bo‘yicha qidirish'} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
         <Chip active={avail === 'available'} onClick={() => setAvail(avail === 'all' ? 'available' : 'all')}>Faqat mavjud</Chip>
-        {tab === 'products' && <>
+        {tab !== 'sets' && <>
           <Chip active={cat === 'all'} onClick={() => setCat('all')}>Barcha toifalar</Chip>
           {cats.map(([id, name]) => <Chip key={id} active={cat === id} onClick={() => setCat(id)}>{name}</Chip>)}
         </>}
       </div>
 
       {active.isLoading ? <LoadingBlock rows={4} /> : active.isError ? <ErrorState onRetry={() => void active.refetch()} /> :
-        tab === 'sets' ? (
+        tab === 'builder' ? (
+          <BundleBuilder products={products.data ?? []} search={search} categoryId={cat} onlyAvailable={avail === 'available'} />
+        ) : tab === 'sets' ? (
           fs.length === 0 ? <EmptyState title={term ? 'Hech narsa topilmadi.' : 'Hozircha naborlar mavjud emas.'} /> : (
             <div className="grid gap-3 sm:grid-cols-2">
               {fs.map((s) => (
