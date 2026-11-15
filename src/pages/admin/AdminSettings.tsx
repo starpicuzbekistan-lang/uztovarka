@@ -5,6 +5,7 @@ import { supabase, unwrap } from '@/lib/supabase';
 import { Button, Card, ConfirmDialog, DemoBadge, ErrorState, Input, LoadingBlock, Notice, PageHeader, Select, useToast } from '@/components/ui';
 import { humanError } from '@/lib/uz';
 import BundleSettingsCard from './BundleSettings';
+import OperatorRewardsSales from './OperatorRewardsSales';
 
 type Table = 'product_categories' | 'article_categories';
 
@@ -13,6 +14,7 @@ export default function AdminSettings() {
     <div className="space-y-4">
       <PageHeader title="Sozlamalar" subtitle="Kategoriyalar va demo ma’lumotlarni boshqarish." />
       <BundleSettingsCard />
+      <OperatorRewardsSales />
       <CategoryCard title="Mahsulot kategoriyalari" table="product_categories" />
       <CategoryCard title="Maqola kategoriyalari" table="article_categories" />
       <DemoCard />

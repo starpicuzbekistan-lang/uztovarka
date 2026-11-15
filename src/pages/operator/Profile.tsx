@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, LogOut } from 'lucide-react';
+import GoldVerifiedCard, { useGoldProgress } from '@/components/GoldVerifiedCard';
+import GoldVerifiedIcon from '@/components/GoldVerifiedIcon';
+import SalesPerformance from '@/components/SalesPerformance';
 import { useAuth } from '@/auth/AuthContext';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useOperatorMonth } from '@/lib/useMonthData';
@@ -34,17 +37,20 @@ export default function Profile() {
 
 function InfoSection() {
   const { profile } = useAuth();
+  const gold = useGoldProgress(profile?.id);
   if (!profile) return null;
+  const verified = gold.data?.some(m => m.is_verified) ?? false;
   const rows: [string, string][] = [
     ['Lavozim', profile.position || '—'], ['Xodim ID', profile.employee_id || '—'],
     ['Email', profile.email || '—'], ['Telefon', profile.phone || '—'], ['Rol', ROLE_UZ[profile.role]],
   ];
   return (
-    <Card className="space-y-4 p-5">
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
       <div className="flex items-center gap-4">
         <Avatar name={profile.full_name} path={profile.avatar_url} size={64} />
         <div>
-          <div className="text-lg font-bold">{profile.full_name}</div>
+          <div className="flex items-center gap-1.5 text-lg font-bold">{profile.full_name}{verified && <GoldVerifiedIcon />}</div>
           <Badge tone={profile.is_active ? 'green' : 'red'}>{profile.is_active ? 'Faol' : 'Nofaol'}</Badge>
         </div>
       </div>
@@ -53,7 +59,9 @@ function InfoSection() {
           <div key={k} className="flex justify-between gap-4 py-2"><dt className="text-neutral-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
         ))}
       </dl>
-    </Card>
+      </Card>
+      <GoldVerifiedCard operatorId={profile.id} />
+    </div>
   );
 }
 
@@ -89,6 +97,7 @@ function PerformanceSection() {
             <StatCard label="Qizil kunlar" value={r.counts.red} tone="red" />
           </div>
           <p className="text-xs text-neutral-500">Kelmagan kunlar: {r.counts.absences} · Ta’tillar: {r.counts.leaves}</p>
+          {profile?.id && q.data && <SalesPerformance operatorId={profile.id} y={ym.y} m={ym.m} reports={q.data.reports} workedDays={r.workedDays} />}
         </>
       )}
     </div>
@@ -106,6 +115,16 @@ function LeaderboardSection() {
     queryFn: async () => (await unwrap(supabase.rpc('leaderboard', { p_start: start, p_end: end }))) as
       { operator_id: string; full_name: string; avatar_url: string | null; total_orders: number; worked_days: number; green_days: number }[],
   });
+  const gold = useQuery({
+    queryKey: ['gold-verified-operators'],
+    queryFn: async () => (await unwrap(supabase.rpc('get_gold_verified_operators'))) as { operator_id: string }[],
+  });
+  const verifiedIds = new Set((gold.data ?? []).map(o => o.operator_id));
+  const prizes = useQuery({
+    queryKey: ['monthly-prizes', start],
+    queryFn: async () => ((await unwrap(supabase.from('monthly_rank_prizes').select('first_uzs,second_uzs,third_uzs').eq('month_start',start))) as
+      {first_uzs:number;second_uzs:number;third_uzs:number}[])[0] ?? null,
+  });
   const stats = (q.data ?? []).map((o) => ({ id: o.operator_id, name: o.full_name, totalOrders: Number(o.total_orders), workedDays: Number(o.worked_days), greenDays: Number(o.green_days) }));
   const ranked = rankOperators(stats, mode);
   const avatar = (id: string) => q.data?.find((o) => o.operator_id === id)?.avatar_url ?? null;
@@ -115,6 +134,24 @@ function LeaderboardSection() {
   return (
     <div className="space-y-4">
       <MonthNav y={ym.y} m={ym.m} onChange={(y, m) => setYm({ y, m })} />
+      <Card className="space-y-3 p-4">
+        <h2 className="font-bold">🏆 TOP 3 uchun oylik pul mukofotlari</h2>
+        {prizes.isError && <ErrorState message={humanError(prizes.error)} onRetry={() => void prizes.refetch()} />}
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { rank: '🥈', label: '2-o‘rin', amount: prizes.data?.second_uzs },
+            { rank: '🥇', label: '1-o‘rin', amount: prizes.data?.first_uzs },
+            { rank: '🥉', label: '3-o‘rin', amount: prizes.data?.third_uzs },
+          ]).map((item, i) => <div key={item.label} className={clsx('flex flex-col items-center justify-center gap-1 rounded-xl border p-2 text-center',i === 1 && 'border-amber-400 bg-amber-50')}>
+            <span className="text-2xl">{item.rank}</span>
+            <span className="text-xs font-semibold">{item.label}</span>
+            <span className="text-sm font-bold tabular-nums">{prizes.isLoading ? '…' : item.amount === undefined ? '—' : formatNumber(Number(item.amount))}</span>
+            <span className="text-[11px] text-neutral-500">so‘m</span>
+          </div>)}
+        </div>
+        {!prizes.isLoading && !prizes.data && <p className="text-xs text-neutral-500">Bu oy uchun mukofotlar administrator tomonidan hali belgilanmagan.</p>}
+        <p className="text-xs text-neutral-500">O‘rinlar jami tasdiqlangan qabul bo‘yicha belgilanadi. Reyting filtrlari pastda.</p>
+      </Card>
       <Segmented<RankMode> value={mode} onChange={setMode} options={[
         { value: 'total', label: 'Jami qabul' }, { value: 'average', label: 'Kunlik o‘rtacha' }, { value: 'green', label: 'Yashil kunlar' },
       ]} />
@@ -127,7 +164,7 @@ function LeaderboardSection() {
             <span className={clsx('inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', medal[o.rank - 1] ?? 'bg-neutral-100 text-neutral-600')}>{o.rank}</span>
             <Avatar name={o.name} path={avatar(o.id)} size={40} />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{o.name}{o.id === profile?.id && ' (siz)'}</div>
+              <div className="flex min-w-0 items-center gap-1"><span className="truncate font-semibold">{o.name}{o.id === profile?.id && ' (siz)'}</span>{verifiedIds.has(o.id) && <GoldVerifiedIcon size={17} />}</div>
               <div className="text-xs text-neutral-500">Ishlangan: {o.workedDays} kun · Yashil: {o.greenDays}</div>
             </div>
             <div className="text-right">
