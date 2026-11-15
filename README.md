@@ -72,3 +72,9 @@ Administrator yo‘q bo‘lsa, panelga kirib bo‘lmaydi, shuning uchun birinchi
 ## Admin sahifalari
 
 Operatorlar · KPI va oyliklar (yakunlash, tasdiqlash, davrni yopish, KPI versiyalari) · Kunlik hisobotlar · Mahsulotlar · Naborlar · Skriptlar (+ e’tirozlar) · Maqolalar · E’lonlar · To‘lovlar · Faoliyat tarixi · Sozlamalar.
+
+## Nabor tuzish (individual nabor)
+
+Operator → Mahsulotlar → **Nabor tuzish**. Narxlar `products.price_uzs` dan olinadi; yakuniy hisob serverdagi `calculate_custom_bundle()` RPC orqali qayta tekshiriladi.
+Supabase SQL Editor’da tartib bilan ishga tushiring: `007_bundle_builder.sql`, so‘ng `008_bundle_settings_audit.sql` (sozlamalar o‘zgarishini faoliyat tarixiga yozadi).
+Admin → Sozlamalar → “Nabor tuzish va chegirma sozlamalari”: chegirmani yoqish, operatorga ruxsat, maksimal % va so‘m, yetkazib berish. Mahsulot narxi: Admin → Mahsulotlar → “Sotuv narxi”.
