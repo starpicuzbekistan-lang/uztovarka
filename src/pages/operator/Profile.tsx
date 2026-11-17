@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, LogOut } from 'lucide-react';
-import GoldVerifiedCard, { useGoldProgress } from '@/components/GoldVerifiedCard';
-import GoldVerifiedIcon from '@/components/GoldVerifiedIcon';
+import OperatorMotivation from '@/components/OperatorMotivation';
+import TeamsSection from '@/components/TeamsSection';
 import SalesPerformance from '@/components/SalesPerformance';
 import { useAuth } from '@/auth/AuthContext';
 import { supabase, unwrap } from '@/lib/supabase';
@@ -16,7 +16,7 @@ import { MonthNav } from '@/components/MonthNav';
 import { uploadImage } from '@/lib/storage';
 import clsx from 'clsx';
 
-type Tab = 'info' | 'perf' | 'rank' | 'settings';
+type Tab = 'info' | 'perf' | 'rank' | 'teams' | 'settings';
 
 export default function Profile() {
   const [tab, setTab] = useState<Tab>('info');
@@ -24,12 +24,13 @@ export default function Profile() {
     <div className="space-y-4">
       <PageHeader title="Profil" />
       <Segmented<Tab> value={tab} onChange={setTab} options={[
-        { value: 'info', label: 'Ma’lumot' }, { value: 'perf', label: 'Ko‘rsatkich' },
-        { value: 'rank', label: 'Reyting' }, { value: 'settings', label: 'Sozlamalar' },
+        { value: 'info', label: 'Umumiy' }, { value: 'perf', label: 'Ko‘rsatkich' },
+        { value: 'rank', label: 'Reyting' }, { value: 'teams', label: 'Jamoalar' }, { value: 'settings', label: 'Sozlamalar' },
       ]} />
       {tab === 'info' && <InfoSection />}
       {tab === 'perf' && <PerformanceSection />}
       {tab === 'rank' && <LeaderboardSection />}
+      {tab === 'teams' && <TeamsSection />}
       {tab === 'settings' && <SettingsSection />}
     </div>
   );
@@ -37,9 +38,7 @@ export default function Profile() {
 
 function InfoSection() {
   const { profile } = useAuth();
-  const gold = useGoldProgress(profile?.id);
   if (!profile) return null;
-  const verified = gold.data?.some(m => m.is_verified) ?? false;
   const rows: [string, string][] = [
     ['Lavozim', profile.position || '—'], ['Xodim ID', profile.employee_id || '—'],
     ['Email', profile.email || '—'], ['Telefon', profile.phone || '—'], ['Rol', ROLE_UZ[profile.role]],
@@ -50,7 +49,7 @@ function InfoSection() {
       <div className="flex items-center gap-4">
         <Avatar name={profile.full_name} path={profile.avatar_url} size={64} />
         <div>
-          <div className="flex items-center gap-1.5 text-lg font-bold">{profile.full_name}{verified && <GoldVerifiedIcon />}</div>
+          <div className="text-lg font-bold">{profile.full_name}</div>
           <Badge tone={profile.is_active ? 'green' : 'red'}>{profile.is_active ? 'Faol' : 'Nofaol'}</Badge>
         </div>
       </div>
@@ -60,7 +59,7 @@ function InfoSection() {
         ))}
       </dl>
       </Card>
-      <GoldVerifiedCard operatorId={profile.id} />
+      <OperatorMotivation operatorId={profile.id} />
     </div>
   );
 }
@@ -115,11 +114,6 @@ function LeaderboardSection() {
     queryFn: async () => (await unwrap(supabase.rpc('leaderboard', { p_start: start, p_end: end }))) as
       { operator_id: string; full_name: string; avatar_url: string | null; total_orders: number; worked_days: number; green_days: number }[],
   });
-  const gold = useQuery({
-    queryKey: ['gold-verified-operators'],
-    queryFn: async () => (await unwrap(supabase.rpc('get_gold_verified_operators'))) as { operator_id: string }[],
-  });
-  const verifiedIds = new Set((gold.data ?? []).map(o => o.operator_id));
   const prizes = useQuery({
     queryKey: ['monthly-prizes', start],
     queryFn: async () => ((await unwrap(supabase.from('monthly_rank_prizes').select('first_uzs,second_uzs,third_uzs').eq('month_start',start))) as
@@ -164,7 +158,7 @@ function LeaderboardSection() {
             <span className={clsx('inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', medal[o.rank - 1] ?? 'bg-neutral-100 text-neutral-600')}>{o.rank}</span>
             <Avatar name={o.name} path={avatar(o.id)} size={40} />
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-1"><span className="truncate font-semibold">{o.name}{o.id === profile?.id && ' (siz)'}</span>{verifiedIds.has(o.id) && <GoldVerifiedIcon size={17} />}</div>
+              <div className="truncate font-semibold">{o.name}{o.id === profile?.id && ' (siz)'}</div>
               <div className="text-xs text-neutral-500">Ishlangan: {o.workedDays} kun · Yashil: {o.greenDays}</div>
             </div>
             <div className="text-right">

@@ -1,12 +1,16 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, MailPlus, Power, ShieldCheck, UserPlus } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, PageHeader, Select, useToast } from '@/components/ui';
 import { humanError, ROLE_UZ, validateEmail } from '@/lib/uz';
-import { formatDateUz } from '@/lib/dates';
+import { formatDateUz, formatDateTimeUz } from '@/lib/dates';
 import type { Profile } from '@/lib/types';
+
+type PresenceRecord = { user_id: string; last_login_at: string | null; last_seen_at: string | null; online: boolean };
+
+const isOnline = (p: PresenceRecord | undefined, now: number) => !!p && p.online && !!p.last_seen_at && now - new Date(p.last_seen_at).getTime() < 90_000;
 
 type AdminAction =
   | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator'; position?: string; employee_id?: string }
@@ -48,6 +52,18 @@ export default function Operators() {
     queryFn: async () => (await unwrap(supabase.from('profiles').select('*').order('created_at', { ascending: false }))) as Profile[],
   });
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin-profiles'] });
+  const presence = useQuery({
+    queryKey: ['admin-operator-presence'],
+    queryFn: async () => (await unwrap(supabase.from('operator_presence')
+      .select('user_id,last_login_at,last_seen_at,online'))) as PresenceRecord[],
+    refetchInterval: 30_000,
+  });
+  const [clock, setClock] = useState(Date.now());
+  // Online chirog'i 90 soniya signal bo'lmasa avtomatik o'chadi.
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const run = useMutation({
     mutationFn: callAdmin,
@@ -56,12 +72,23 @@ export default function Operators() {
   });
 
   const rows = (list.data ?? []).filter((p) => `${p.full_name} ${p.email ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const onlineCount = (presence.data ?? []).filter(p => isOnline(p, clock)).length;
 
   return (
     <div className="space-y-4">
       <PageHeader title="Operatorlar" subtitle="Hisoblarni faqat administrator yaratadi va boshqaradi."
         action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4" /> Yangi operator</Button>} />
       <Input placeholder="Ism yoki email bo‘yicha qidirish" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
+        <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-neutral-200">
+          <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+          Online: {presence.isError ? '—' : onlineCount}
+        </span>
+        <span>Online — ilova ko‘rinib turgan va oxirgi 90 soniyada signal bergan operator.</span>
+      </div>
+      {presence.isError && <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900">
+        Online ma’lumotlarini yuklab bo‘lmadi. Supabase SQL Editor’da 010_operator_presence.sql migratsiyasini tekshiring.
+      </p>}
 
       {list.isLoading && <LoadingBlock rows={4} />}
       {list.isError && <ErrorState message={humanError(list.error)} onRetry={() => void list.refetch()} />}
@@ -70,6 +97,8 @@ export default function Operators() {
       <div className="grid gap-3 md:grid-cols-2">
         {rows.map((p) => {
           const self = p.id === me?.id;
+          const last = presence.data?.find(v => v.user_id === p.id);
+          const connected = isOnline(last, clock);
           return (
             <Card key={p.id} className="space-y-3 p-4">
               <div className="flex items-center gap-3">
@@ -79,12 +108,20 @@ export default function Operators() {
                   <div className="truncate text-sm text-neutral-500">{p.email}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge tone={p.is_active ? 'green' : 'red'}>{p.is_active ? 'Faol' : 'Nofaol'}</Badge>
+                  <Badge tone={p.is_active ? 'green' : 'red'}>{p.is_active ? 'Hisob faol' : 'Hisob nofaol'}</Badge>
+                  {p.role === 'operator' && <span className="flex items-center gap-1 text-xs font-medium text-neutral-600" title="Online holati: 90 soniyalik faoliyat oynasi">
+                    <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                    {connected ? 'Online' : 'Offline'}
+                  </span>}
                   <Badge tone={p.role === 'admin' ? 'yellow' : 'neutral'}>{ROLE_UZ[p.role]}</Badge>
                 </div>
               </div>
-              <div className="text-xs text-neutral-500">
-                {p.position}{p.employee_id ? ` · ID: ${p.employee_id}` : ''} · Qo‘shilgan: {formatDateUz(p.created_at.slice(0, 10))}
+              <div className="space-y-1 text-xs text-neutral-500">
+                <p>{p.position}{p.employee_id ? ` · ID: ${p.employee_id}` : ''} · Qo‘shilgan: {formatDateUz(p.created_at.slice(0, 10))}</p>
+                {p.role === 'operator' && <>
+                  <p>Oxirgi kirish: {last?.last_login_at ? formatDateTimeUz(last.last_login_at) : 'Hali qayd etilmagan'}</p>
+                  <p>Oxirgi faollik: {last?.last_seen_at ? formatDateTimeUz(last.last_seen_at) : 'Hali qayd etilmagan'}</p>
+                </>}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="outline" disabled={self && p.is_active} onClick={() => setToggle(p)}>
