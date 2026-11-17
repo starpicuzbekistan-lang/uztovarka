@@ -7,10 +7,18 @@ import './index.css';
 import App from './App';
 import { AuthProvider } from './auth/AuthContext';
 import { ToastProvider } from './components/ui';
+import OperatorPresenceTracker from './components/OperatorPresenceTracker';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
 });
+
+// Service worker cache'ga shaxsiy operator yoki admin ma'lumotlarini yozmaydi.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => { /* ixtiyoriy PWA yordamchisi */ });
+  });
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -18,6 +26,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <ToastProvider>
           <AuthProvider>
+            <OperatorPresenceTracker />
             <App />
           </AuthProvider>
         </ToastProvider>

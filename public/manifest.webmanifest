@@ -1,0 +1,26 @@
+{
+  "name": "UZTOVARKA — Operatorlar markazi",
+  "short_name": "UZTOVARKA",
+  "description": "UZTOVARKA operatorlari uchun ish va bilim markazi",
+  "lang": "uz",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8F9FB",
+  "theme_color": "#FACC15",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

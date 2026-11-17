@@ -95,10 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBlockedMessage(null);
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
+      // Server qaydnomasi: SQL migratsiya 010 mavjud bo'lsa, oxirgi login vaqtini yangilaydi.
+      try { await supabase.rpc('record_operator_presence', { p_action: 'login' }); }
+      catch { /* Presence faqat yordamchi funksiya, login to'xtamasin. */ }
     },
     signOut: async () => {
       sessionStorage.removeItem(NEEDS_PW_KEY);
       setNeedsPassword(false);
+      try { await supabase.rpc('record_operator_presence', { p_action: 'logout' }); }
+      catch { /* Presence yozilmasa ham seansdan chiqish davom etadi. */ }
       await supabase.auth.signOut();
     },
     refreshProfile: () => loadProfile(sessionRef.current),
