@@ -6,6 +6,7 @@ import { Button, Card, ConfirmDialog, DemoBadge, ErrorState, Input, LoadingBlock
 import { humanError } from '@/lib/uz';
 import BundleSettingsCard from './BundleSettings';
 import OperatorRewardsSales from './OperatorRewardsSales';
+import TeamGoalsAdmin from './TeamGoalsAdmin';
 
 type Table = 'product_categories' | 'article_categories';
 
@@ -15,6 +16,7 @@ export default function AdminSettings() {
       <PageHeader title="Sozlamalar" subtitle="Kategoriyalar va demo ma’lumotlarni boshqarish." />
       <BundleSettingsCard />
       <OperatorRewardsSales />
+      <TeamGoalsAdmin />
       <CategoryCard title="Mahsulot kategoriyalari" table="product_categories" />
       <CategoryCard title="Maqola kategoriyalari" table="article_categories" />
       <DemoCard />
