@@ -7,6 +7,7 @@ import { humanError } from '@/lib/uz';
 import BundleSettingsCard from './BundleSettings';
 import OperatorRewardsSales from './OperatorRewardsSales';
 import TeamGoalsAdmin from './TeamGoalsAdmin';
+import SpecialBadgesAdmin from './SpecialBadgesAdmin';
 
 type Table = 'product_categories' | 'article_categories';
 
@@ -17,6 +18,7 @@ export default function AdminSettings() {
       <BundleSettingsCard />
       <OperatorRewardsSales />
       <TeamGoalsAdmin />
+      <SpecialBadgesAdmin />
       <CategoryCard title="Mahsulot kategoriyalari" table="product_categories" />
       <CategoryCard title="Maqola kategoriyalari" table="article_categories" />
       <DemoCard />
