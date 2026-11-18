@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CircleCheck, Clock3, ShieldCheck } from 'lucide-react';
 import WalletAdmin from './WalletAdmin';
 import AbsencePolicyAdmin from './AbsencePolicyAdmin';
+import AcceptancePaymentAdmin from './AcceptancePaymentAdmin';
 import { PageHeader, Card, Segmented } from '@/components/ui';
 
 type Tab='wallet'|'rules';
@@ -9,7 +10,7 @@ type Tab='wallet'|'rules';
 export default function KpiPayroll(){
  const [tab,setTab]=useState<Tab>('wallet');
  return <div className="space-y-4">
-  <PageHeader title="KPI va oyliklar" subtitle="Yangi tizim: qabul 1 000 so‘m + tasdiqlangan sotuv 5 000 so‘m, Hold va Asosiy balanslar."/>
+  <PageHeader title="KPI va oyliklar" subtitle="Kunlik me’yor bajarilganda qabul × 1 000, tasdiqlangan sotuv × 5 000; Asosiy va Hold balanslar."/>
   <Segmented<Tab> value={tab} onChange={setTab} options={[
    {value:'wallet',label:'Balanslarni boshqarish'},
    {value:'rules',label:'KPI mezonlari'}
@@ -19,7 +20,7 @@ export default function KpiPayroll(){
 }
 
 function KpiRules(){
- return <div className="space-y-4"><AbsencePolicyAdmin/><Card className="space-y-4 p-4 sm:p-5">
+ return <div className="space-y-4"><AcceptancePaymentAdmin/><AbsencePolicyAdmin/><Card className="space-y-4 p-4 sm:p-5">
   <h2 className="font-bold">Kunlik KPI mezonlari</h2>
   <p className="text-sm text-neutral-600">Yangi qoidalar 012 SQL migratsiyasi orqali amaldagi umumiy va shaxsiy sozlamalarga yoziladi. Bu mezonlar faqat kunlik natija ranglari, reyting va badge'larni belgilaydi. Balansga jarima yoki bonus avtomatik qo‘shmaydi.</p>
   <div className="grid gap-2">

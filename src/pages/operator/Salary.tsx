@@ -4,6 +4,7 @@ import { CheckCircle2, Clock, Info, Gift, AlertCircle } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { useWallet, useMissingDays, type WalletMovement } from '@/lib/wallet';
+import { useAcceptanceThreshold, useAcceptanceMonth } from '@/lib/acceptance';
 import { WalletOverview } from '@/components/WalletBalances';
 import { useOperatorMonth } from '@/lib/useMonthData';
 import { KpiCalendar, STATE_META } from '@/components/KpiCalendar';
@@ -27,8 +28,8 @@ const SUBMIT_ERR: Record<string, string> = {
 const TONE = { green: 'green', yellow: 'yellow', red: 'red' } as const;
 const KPI_WORD = { green: 'Yashil', yellow: 'Sariq', red: 'Qizil' } as const;
 
-function TodayCard({ today, report, settings, attendanceToday, onDone }: {
-  today: string; report: Report | undefined; settings: KpiSettings; attendanceToday?: string; onDone: () => void;
+function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, onDone }: {
+  today: string; report: Report | undefined; settings: KpiSettings; acceptanceMin: number | null; attendanceToday?: string; onDone: () => void;
 }) {
   const toast = useToast();
   const [value, setValue] = useState('');
@@ -55,6 +56,15 @@ function TodayCard({ today, report, settings, attendanceToday, onDone }: {
 
   const showForm = !report || resubmit;
   const draftOk = isValidCount(parsed);
+  const acceptanceAmount = (count:number) => acceptanceMin===null ? null : count>=acceptanceMin ? count*1000 : 0;
+  const acceptanceMessage = (count:number) => {
+    const money=acceptanceAmount(count);
+    return money===null
+      ? 'Qabul to‘lovi me’yori yuklanmoqda. Hisobot yuborish mumkin, summa keyin aniqlanadi.'
+      : money>0
+        ? `Kunlik me’yor bajarilsa va admin tasdiqlasa, Asosiy balansga ${formatUzs(money)} qo‘shiladi.`
+        : `Kunlik to‘lov me’yori: ${acceptanceMin} ta. Qabul puli 0 so‘m. Tasdiqlangan sotuv uchun 5 000 so‘m alohida beriladi.`;
+  };
 
   return (
     <Card>
@@ -75,7 +85,7 @@ function TodayCard({ today, report, settings, attendanceToday, onDone }: {
           {report.status === 'pending' && (
             <p className="text-sm text-neutral-600">
               <Badge tone={TONE[classifyDay(report.accepted_orders, settings)]}>{KPI_WORD[classifyDay(report.accepted_orders, settings)]} kun</Badge>{' '}
-              Admin qabulni tasdiqlasa, asosiy balansga: <strong>{formatUzs(report.accepted_orders * 1000)}</strong>
+              {acceptanceMessage(report.accepted_orders)}
             </p>
           )}
         </div>
@@ -93,7 +103,7 @@ function TodayCard({ today, report, settings, attendanceToday, onDone }: {
           {draftOk && (
             <p className="text-sm text-neutral-600">
               <Badge tone={TONE[classifyDay(parsed, settings)]}>{KPI_WORD[classifyDay(parsed, settings)]} kun</Badge>{' '}
-              Admin qabulni tasdiqlasa, asosiy balansga: <strong>{formatUzs(parsed * 1000)}</strong>
+              {acceptanceMessage(parsed)}
             </p>
           )}
           <Button type="submit" size="lg" className="w-full">{resubmit ? 'Tuzatilgan natijani yuborish' : 'Natijani yuborish'}</Button>
@@ -119,8 +129,11 @@ export default function Salary() {
  const [sel,setSel]=useState<string|null>(null);
  const q=useOperatorMonth(profile?.id,ym.y,ym.m);
  const wallet=useWallet(profile?.id);
+ const thresholdToday=useAcceptanceThreshold(today);
  const missing=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
  const start=`${ym.y}-${String(ym.m).padStart(2,'0')}-01`;
+ const paymentMonth=useAcceptanceMonth(profile?.id,start);
+ const selectedThreshold=useAcceptanceThreshold(sel??today);
  const isCurrent=ym.y===t.y&&ym.m===t.m;
  const sales=useQuery({queryKey:['salary-month-sales',profile?.id,start],enabled:!!profile?.id,
    queryFn:async()=>((await unwrap(supabase.from('operator_sales_monthly').select('sold_orders')
@@ -140,9 +153,10 @@ export default function Salary() {
  const calendarEntries=[...d.entries,...(missing.data??[]).filter(m=>!d.entries.some(e=>e.date===m.missing_date))
    .map(m=>({date:m.missing_date,kind:'absence' as const}))];
  const missingFine=(missing.data??[]).reduce((acc,m)=>acc+Number(m.penalty_uzs),0);
- const approvedAccepted=d.reports.filter(rep=>rep.status==='approved'&&!rep.is_demo &&
-  rep.report_date>=(currentWallet?.start_date??'9999-12-31'))
-  .reduce((sum,rep)=>sum+rep.accepted_orders,0);
+ const approvedAccepted=Number(paymentMonth.data?.total_accepted??0);
+ const paidAccepted=Number(paymentMonth.data?.payable_accepted??0);
+ const unpaidAccepted=Number(paymentMonth.data?.unpaid_accepted??0);
+ const acceptanceEarnings=paymentMonth.data?.accepted_earnings;
  const confirmedSold=Number(confirmed.data?.confirmed_orders??0);
  const heldSold=Math.max(0,Number(sales.data?.sold_orders??0)-confirmedSold);
  const selEntry=sel?calendarEntries.find(e=>e.date===sel):undefined;
@@ -161,14 +175,15 @@ export default function Salary() {
   </div>}
   {wallet.isLoading && <p className="text-xs text-neutral-500">Balans ma’lumotlari yuklanmoqda…</p>}
 
-  <p className="text-xs text-neutral-500">Asosiy balans = tasdiqlangan qabul × 1 000 + tasdiqlangan sotuv × 5 000 + bonuslar − to‘lovlar − jarimalar. Hold = tasdiqlanishi kutilayotgan sotuv × 5 000.</p>
+  <p className="text-xs text-neutral-500">Qabul puli: kunlik me’yor bajarilgandagina o‘sha kundagi barcha tasdiqlangan qabullar × 1 000 so‘m. Sotuv tasdiqlansa, qo‘shimcha × 5 000 so‘m. Hold'dagi sotuv puli tasdiqlashni kutadi.</p>
   {currentWallet && <Card className="space-y-4 p-4">
    <h2 className="text-lg font-bold">Daromad tarkibi · {ym.m}/{ym.y}</h2>
    <div className="grid grid-cols-2 gap-3">
     <div className="rounded-xl bg-neutral-50 p-3">
      <p className="text-xs text-neutral-500">Qabullardan</p>
-     <p className="mt-1 break-all text-xl font-extrabold tabular-nums">{formatNumber(approvedAccepted*1000)}</p>
-     <p className="mt-1 text-[11px] text-neutral-500">{formatNumber(approvedAccepted)} ta × 1 000 so‘m</p>
+     <p className="mt-1 break-all text-xl font-extrabold tabular-nums">{acceptanceEarnings===undefined?'—':formatNumber(Number(acceptanceEarnings))}</p>
+     <p className="mt-1 text-[11px] text-neutral-500">{formatNumber(paidAccepted)} ta to‘lanadigan qabul × 1 000 so‘m</p>
+     <p className="mt-1 text-[11px] text-neutral-500">Jami: {formatNumber(approvedAccepted)} ta · Me’yor yetmagani: {formatNumber(unpaidAccepted)} ta</p>
     </div>
     <div className="rounded-xl bg-neutral-50 p-3">
      <p className="text-xs text-neutral-500">Sotuvlardan</p>
@@ -176,6 +191,7 @@ export default function Salary() {
      <p className="mt-1 text-[11px] text-neutral-500">{formatNumber(confirmedSold)} ta × 5 000 so‘m</p>
     </div>
    </div>
+   {paymentMonth.isError&&<ErrorState message="Qabul puli hisoboti yuklanmadi. 015 SQL migratsiyasini tekshiring." onRetry={()=>void paymentMonth.refetch()}/>}
    <div className="flex items-center justify-between gap-3 rounded-xl bg-yellow-50 px-3 py-2">
     <div><p className="text-sm font-semibold">Hold'dagi sotuvlar</p><p className="text-xs text-neutral-500">{heldSold} ta tasdiqlanmagan</p></div>
     <span className="font-bold tabular-nums">{formatUzs(heldSold*5000)}</span>
@@ -184,8 +200,9 @@ export default function Salary() {
   </Card>}
   {isCurrent&&<TodayCard
    today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings}
+   acceptanceMin={thresholdToday.data??null}
    attendanceToday={(()=>{const a=d.attendance.find(x=>x.record_date===today);return a?ATTENDANCE_UZ[a.kind]:undefined;})()}
-   onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});void qc.invalidateQueries({queryKey:['operator-missing-days']});}}
+   onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});void qc.invalidateQueries({queryKey:['operator-missing-days']});void qc.invalidateQueries({queryKey:['acceptance-month']});}}
   />}
   <Card>
    <h2 className="mb-3 text-lg font-bold">KPI kalendari</h2>
@@ -240,8 +257,8 @@ export default function Salary() {
      <Row label="Qabul qilingan buyurtmalar" value={`${selReport.accepted_orders} ta`}/>
      <Row label="Hisobot holati" value={REPORT_STATUS_UZ[selReport.status]}/>
      {selReport.status==='approved'&&!selReport.is_demo&&currentWallet&&selReport.report_date>=currentWallet.start_date&&
-       <Row label="Asosiy balansga qo‘shilgan" value={formatUzs(selReport.accepted_orders*1000)} strong/>}
-     {selReport.status==='pending'&&<Row label="Admin tasdiqlasa" value={formatUzs(selReport.accepted_orders*1000)}/>}
+       <Row label="Asosiy balansga qo‘shilgan" value={selectedThreshold.data===undefined?'—':formatUzs(selReport.accepted_orders>=selectedThreshold.data?selReport.accepted_orders*1000:0)} strong/>}
+     {selReport.status==='pending'&&<Row label="Admin tasdiqlasa" value={selectedThreshold.data===undefined?'—':formatUzs(selReport.accepted_orders>=selectedThreshold.data?selReport.accepted_orders*1000:0)}/>}
     </dl>}
     {selReport?.review_note&&<Notice tone="warn">Administrator izohi: {selReport.review_note}</Notice>}
    </div>}

@@ -73,11 +73,26 @@ export default function Operators() {
 
   const rows = (list.data ?? []).filter((p) => `${p.full_name} ${p.email ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
   const onlineCount = (presence.data ?? []).filter(p => isOnline(p, clock)).length;
+  const pendingRegistrations=(list.data??[]).filter(p=>p.role==='operator'&&!p.is_active&&p.signup_requested_at&&!p.signup_reviewed_at);
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Operatorlar" subtitle="Hisoblarni faqat administrator yaratadi va boshqaradi."
+      <PageHeader title="Operatorlar" subtitle="Operatorlar o‘zlari ro‘yxatdan o‘tishlari mumkin. Admin tasdiqlamaguncha tizimga kira olishmaydi."
         action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4" /> Yangi operator</Button>} />
+      <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <h2 className="font-bold text-amber-950">Tasdiqlashni kutayotgan arizalar · {pendingRegistrations.length}</h2>
+        <p className="text-xs text-amber-900/80">Operator ro‘yxatdan o‘tib, email va parol tanlagan. Tasdiqlangach, o‘sha parol bilan kiradi. Email tasdiqlash yoqilgan bo‘lsa, emailni ham tasdiqlashi kerak.</p>
+        {pendingRegistrations.length===0&&<p className="text-sm text-neutral-600">Hozircha yangi ariza yo‘q.</p>}
+        {pendingRegistrations.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-3">
+          <div className="min-w-0"><p className="truncate font-semibold">{p.full_name}</p><p className="truncate text-xs text-neutral-500">{p.email}</p></div>
+          <Button size="sm" disabled={run.isPending} loading={run.isPending&&run.variables?.action==='set_active'}
+            onClick={()=>run.mutate({action:'set_active',user_id:p.id,active:true},{
+              onSuccess:()=>toast('success','Operator tasdiqlandi. Endi o‘z paroli bilan kirishi mumkin.')
+            })}>
+            <ShieldCheck className="h-4 w-4"/> Tasdiqlash
+          </Button>
+        </div>)}
+      </section>
       <Input placeholder="Ism yoki email bo‘yicha qidirish" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
         <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-neutral-200">
@@ -108,7 +123,9 @@ export default function Operators() {
                   <div className="truncate text-sm text-neutral-500">{p.email}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Badge tone={p.is_active ? 'green' : 'red'}>{p.is_active ? 'Hisob faol' : 'Hisob nofaol'}</Badge>
+                  <Badge tone={p.is_active ? 'green' : p.signup_requested_at && !p.signup_reviewed_at ? 'yellow' : 'red'}>
+                    {p.is_active?'Hisob faol':p.signup_requested_at&&!p.signup_reviewed_at?'Admin tasdig‘ini kutmoqda':'Hisob nofaol'}
+                  </Badge>
                   {p.role === 'operator' && <span className="flex items-center gap-1 text-xs font-medium text-neutral-600" title="Online holati: 90 soniyalik faoliyat oynasi">
                     <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-neutral-300'}`} />
                     {connected ? 'Online' : 'Offline'}

@@ -11,6 +11,8 @@ export interface Profile {
   avatar_url: string | null;
   role: 'admin' | 'operator';
   is_active: boolean;
+  signup_requested_at?: string | null;
+  signup_reviewed_at?: string | null;
   notify_reports: boolean;
   notify_announcements: boolean;
   allow_backdated_reports: boolean;
