@@ -151,7 +151,8 @@ export default function Salary() {
  const selectedMonthMovements=(movements.data??[]).filter(m=>m.created_at.slice(0,7)===start.slice(0,7));
  return <div className="space-y-4">
   <PageHeader title="Oylik to‘lov" />
-  {/* BALANSLAR ENG TEPADA. SQL ishlamaganda ham ularning joyi va nomi saqlanadi. */}
+  <MonthNav y={ym.y} m={ym.m} onChange={(y,m)=>{setYm({y,m});setSel(null);}}/>
+  {/* Oy tanlashning darhol ostida Asosiy va Hold balanslari. */}
   <WalletOverview wallet={currentWallet}/>
   {wallet.isError && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
     <AlertCircle size={18} className="mt-0.5 shrink-0"/>
@@ -159,7 +160,7 @@ export default function Salary() {
       <button className="mt-2 underline" onClick={()=>void wallet.refetch()}>Qayta urinib ko‘rish</button></div>
   </div>}
   {wallet.isLoading && <p className="text-xs text-neutral-500">Balans ma’lumotlari yuklanmoqda…</p>}
-  <MonthNav y={ym.y} m={ym.m} onChange={(y,m)=>{setYm({y,m});setSel(null);}}/>
+
   <p className="text-xs text-neutral-500">Asosiy balans = tasdiqlangan qabul × 1 000 + tasdiqlangan sotuv × 5 000 + bonuslar − to‘lovlar − jarimalar. Hold = tasdiqlanishi kutilayotgan sotuv × 5 000.</p>
   {currentWallet && <Card className="space-y-4 p-4">
    <h2 className="text-lg font-bold">Daromad tarkibi · {ym.m}/{ym.y}</h2>
