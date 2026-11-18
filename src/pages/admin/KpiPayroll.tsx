@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CircleCheck, Clock3, ShieldCheck } from 'lucide-react';
 import WalletAdmin from './WalletAdmin';
+import AbsencePolicyAdmin from './AbsencePolicyAdmin';
 import { PageHeader, Card, Segmented } from '@/components/ui';
 
 type Tab='wallet'|'rules';
@@ -18,7 +19,7 @@ export default function KpiPayroll(){
 }
 
 function KpiRules(){
- return <Card className="space-y-4 p-4 sm:p-5">
+ return <div className="space-y-4"><AbsencePolicyAdmin/><Card className="space-y-4 p-4 sm:p-5">
   <h2 className="font-bold">Kunlik KPI mezonlari</h2>
   <p className="text-sm text-neutral-600">Yangi qoidalar 012 SQL migratsiyasi orqali amaldagi umumiy va shaxsiy sozlamalarga yoziladi. Bu mezonlar faqat kunlik natija ranglari, reyting va badge'larni belgilaydi. Balansga jarima yoki bonus avtomatik qo‘shmaydi.</p>
   <div className="grid gap-2">
@@ -33,5 +34,5 @@ function KpiRules(){
    </div>
   </div>
   <p className="text-xs text-neutral-500">Eski 2 mln so‘mlik baza hamda KPI jarima/bonuslari yangi oylik balansini hisoblashda ishlatilmaydi. Tarixiy yozuvlar ma’lumotlar bazasida saqlanadi.</p>
- </Card>;
+ </Card></div>;
 }

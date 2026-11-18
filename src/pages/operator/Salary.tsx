@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Clock, Info, Gift, Wallet } from 'lucide-react';
+import { CheckCircle2, Clock, Info, Gift, AlertCircle } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
-import { useWallet, type WalletMovement } from '@/lib/wallet';
+import { useWallet, useMissingDays, type WalletMovement } from '@/lib/wallet';
 import { WalletOverview } from '@/components/WalletBalances';
 import { useOperatorMonth } from '@/lib/useMonthData';
 import { KpiCalendar, STATE_META } from '@/components/KpiCalendar';
@@ -119,6 +119,7 @@ export default function Salary() {
  const [sel,setSel]=useState<string|null>(null);
  const q=useOperatorMonth(profile?.id,ym.y,ym.m);
  const wallet=useWallet(profile?.id);
+ const missing=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
  const start=`${ym.y}-${String(ym.m).padStart(2,'0')}-01`;
  const isCurrent=ym.y===t.y&&ym.m===t.m;
  const sales=useQuery({queryKey:['salary-month-sales',profile?.id,start],enabled:!!profile?.id,
@@ -136,23 +137,31 @@ export default function Salary() {
  const d=q.data;
  const {result:r,settings}=d;
  const currentWallet=wallet.data;
+ const calendarEntries=[...d.entries,...(missing.data??[]).filter(m=>!d.entries.some(e=>e.date===m.missing_date))
+   .map(m=>({date:m.missing_date,kind:'absence' as const}))];
+ const missingFine=(missing.data??[]).reduce((acc,m)=>acc+Number(m.penalty_uzs),0);
  const approvedAccepted=d.reports.filter(rep=>rep.status==='approved'&&!rep.is_demo &&
   rep.report_date>=(currentWallet?.start_date??'9999-12-31'))
   .reduce((sum,rep)=>sum+rep.accepted_orders,0);
  const confirmedSold=Number(confirmed.data?.confirmed_orders??0);
  const heldSold=Math.max(0,Number(sales.data?.sold_orders??0)-confirmedSold);
- const selEntry=sel?d.entries.find(e=>e.date===sel):undefined;
+ const selEntry=sel?calendarEntries.find(e=>e.date===sel):undefined;
  const selInfo=sel?describeDay(selEntry,settings):null;
  const selReport=sel?d.reports.find(rep=>rep.report_date===sel):undefined;
  const selectedMonthMovements=(movements.data??[]).filter(m=>m.created_at.slice(0,7)===start.slice(0,7));
  return <div className="space-y-4">
   <PageHeader title="Oylik to‘lov" />
+  {/* BALANSLAR ENG TEPADA. SQL ishlamaganda ham ularning joyi va nomi saqlanadi. */}
+  <WalletOverview wallet={currentWallet}/>
+  {wallet.isError && <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+    <AlertCircle size={18} className="mt-0.5 shrink-0"/>
+    <div><b>Balansni yuklashda xatolik.</b><p className="mt-1 text-xs">Asosiy/Hold summalari tasdiqlanmagan, shuning uchun «—» ko‘rsatildi. Supabase'da avval 012, keyin 013 SQL migratsiyasini ishga tushirish kerak.</p>
+      <button className="mt-2 underline" onClick={()=>void wallet.refetch()}>Qayta urinib ko‘rish</button></div>
+  </div>}
+  {wallet.isLoading && <p className="text-xs text-neutral-500">Balans ma’lumotlari yuklanmoqda…</p>}
   <MonthNav y={ym.y} m={ym.m} onChange={(y,m)=>{setYm({y,m});setSel(null);}}/>
-  {wallet.isLoading&&<LoadingBlock rows={2}/>}
-  {wallet.isError&&<ErrorState message={humanError(wallet.error)} onRetry={()=>void wallet.refetch()}/>}
-  {currentWallet&&<WalletOverview wallet={currentWallet}/>}
-  <p className="text-xs text-neutral-500">Asosiy balans: tasdiqlangan qabul × 1 000 + tasdiqlangan sotuv × 5 000 + bonuslar − to‘lovlar. Hold: tasdiqlanishini kutayotgan sotuv × 5 000.</p>
-  <Card className="space-y-4 p-4">
+  <p className="text-xs text-neutral-500">Asosiy balans = tasdiqlangan qabul × 1 000 + tasdiqlangan sotuv × 5 000 + bonuslar − to‘lovlar − jarimalar. Hold = tasdiqlanishi kutilayotgan sotuv × 5 000.</p>
+  {currentWallet && <Card className="space-y-4 p-4">
    <h2 className="text-lg font-bold">Daromad tarkibi · {ym.m}/{ym.y}</h2>
    <div className="grid grid-cols-2 gap-3">
     <div className="rounded-xl bg-neutral-50 p-3">
@@ -171,15 +180,26 @@ export default function Salary() {
     <span className="font-bold tabular-nums">{formatUzs(heldSold*5000)}</span>
    </div>
    <p className="text-xs text-neutral-500">Tanlangan oy statistikasi. Yuqoridagi balanslar barcha oylar bo‘yicha, yangi hamyon boshlangan sanadan hisoblanadi.</p>
-  </Card>
+  </Card>}
   {isCurrent&&<TodayCard
    today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings}
    attendanceToday={(()=>{const a=d.attendance.find(x=>x.record_date===today);return a?ATTENDANCE_UZ[a.kind]:undefined;})()}
-   onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});}}
+   onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});void qc.invalidateQueries({queryKey:['operator-missing-days']});}}
   />}
   <Card>
    <h2 className="mb-3 text-lg font-bold">KPI kalendari</h2>
-   <KpiCalendar period={d.period} entries={d.entries} settings={settings} today={today} selected={sel} onSelect={setSel}/>
+   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel}/>
+  </Card>
+  <Card className="space-y-2 p-4">
+    <h2 className="text-base font-bold">Topshirilmagan kunlar va jarima</h2>
+    <p className="text-xs text-neutral-500">Hisobot yuborilmagan oldingi kunlar «ishlanmagan» deb hisoblanadi. Admin belgilagan dam olish va ta’til kunlari bundan mustasno.</p>
+    {missing.isLoading&&<p className="text-xs text-neutral-500">Tekshirilmoqda…</p>}
+    {missing.isError&&<ErrorState message={humanError(missing.error)} onRetry={()=>void missing.refetch()}/>}
+    {missing.data&&<div className="grid grid-cols-2 gap-3">
+      <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Hisobot topshirilmagan</p><p className="text-xl font-bold">{missing.data.length} kun</p></div>
+      <div className="rounded-xl bg-rose-50 p-3"><p className="text-xs text-rose-700">Jarima</p><p className="text-xl font-bold text-rose-700">−{formatUzs(missingFine)}</p></div>
+    </div>}
+    {(missing.data??[]).length>0&&<p className="text-xs text-neutral-500">Sanalar: {missing.data!.map(x=>formatDateUz(x.missing_date,false)).join(', ')}</p>}
   </Card>
   <div className="grid grid-cols-2 gap-3">
    <StatCard label="Oylik qabul" value={formatNumber(r.approvedOrders)} hint="tasdiqlangan" />

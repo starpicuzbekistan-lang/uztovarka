@@ -13,6 +13,7 @@ import SetPassword from './pages/auth/SetPassword';
 import Home from './pages/operator/Home';
 import ArticleDetail from './pages/operator/ArticleDetail';
 import Notifications from './pages/operator/Notifications';
+import OperatorSupportChat from './pages/operator/SupportChat';
 import Salary from './pages/operator/Salary';
 import Catalog from './pages/operator/Catalog';
 import ProductDetail from './pages/operator/ProductDetail';
@@ -34,6 +35,7 @@ const Announcements = lazy(() => import('./pages/admin/Announcements'));
 const Payments = lazy(() => import('./pages/admin/Payments'));
 const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminSupportChat = lazy(() => import('./pages/admin/AdminSupportChat'));
 
 function SetupRequired() {
   return (
@@ -69,6 +71,7 @@ export default function App() {
             <Route index element={<RoleHomeRedirect><Home /></RoleHomeRedirect>} />
             <Route path="maqola/:id" element={<ArticleDetail />} />
             <Route path="bildirishnomalar" element={<Notifications />} />
+            <Route path="chat" element={<OperatorSupportChat />} />
             <Route path="oylik" element={<Salary />} />
             <Route path="mahsulotlar" element={<Catalog />} />
             <Route path="mahsulotlar/:id" element={<ProductDetail />} />
@@ -84,6 +87,7 @@ export default function App() {
           <Route element={<AdminLayout />}>
             <Route index element={<Overview />} />
             <Route path="operatorlar" element={<Operators />} />
+            <Route path="chat" element={<AdminSupportChat />} />
             <Route path="kpi" element={<KpiPayroll />} />
             <Route path="hisobotlar" element={<Reports />} />
             <Route path="mahsulotlar" element={<AdminProducts />} />

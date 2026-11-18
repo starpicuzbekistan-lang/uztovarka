@@ -1,10 +1,11 @@
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen, Bell, House, Package, UserRound, Wallet, type LucideIcon } from 'lucide-react';
+import { BookOpen, Bell, MessageCircle, House, Package, UserRound, Wallet, type LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { Logo } from '@/components/Logo';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
+import { useChatUnread } from '@/lib/supportChat';
 
 // Aynan beshta asosiy bo‘lim.
 const NAV: { to: string; label: string; icon: LucideIcon; end?: boolean; match: RegExp }[] = [
@@ -30,6 +31,7 @@ export function useUnreadCount() {
 
 export function OperatorLayout() {
   const { data: unread = 0 } = useUnreadCount();
+  const { data: chatUnread = 0 } = useChatUnread();
   const { pathname } = useLocation();
   const { profile } = useAuth();
 
@@ -55,6 +57,12 @@ export function OperatorLayout() {
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link to="/" className="md:hidden"><Logo /></Link>
           <span className="hidden md:block" />
+          <div className="flex items-center gap-1">
+          <Link to="/chat" aria-label={`Admin bilan chat${chatUnread ? `, ${chatUnread} ta yangi xabar` : ''}`}
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100">
+            <MessageCircle className="h-5 w-5"/>
+            {chatUnread>0&&<span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-ink">{chatUnread>9?'9+':chatUnread}</span>}
+          </Link>
           <Link to="/bildirishnomalar" aria-label={`Bildirishnomalar${unread ? `, ${unread} ta o‘qilmagan` : ''}`}
             className="relative inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-neutral-100">
             <Bell className="h-5 w-5" />
@@ -64,6 +72,7 @@ export function OperatorLayout() {
               </span>
             )}
           </Link>
+          </div>
         </div>
       </header>
 
