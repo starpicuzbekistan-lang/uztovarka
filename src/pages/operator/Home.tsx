@@ -9,7 +9,6 @@ import { CoverImage } from '@/components/Media';
 import { Badge, Chip, DemoBadge, EmptyState, ErrorState, LoadingBlock, useToast } from '@/components/ui';
 import { formatDateUz } from '@/lib/dates';
 import { humanError } from '@/lib/uz';
-import WalletStrip from '@/components/WalletBalances';
 
 export interface FeedArticle {
   id: string; title: string; excerpt: string | null; cover_path: string | null; pinned: boolean; read_minutes: number | null;
@@ -54,7 +53,6 @@ export default function Home() {
 
   return (
     <div>
-      <WalletStrip />
       <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Chip active={!onlySaved} onClick={() => setOnlySaved(false)}>Barchasi</Chip>
         <Chip active={onlySaved} onClick={() => setOnlySaved(true)}>Saqlanganlar</Chip>
