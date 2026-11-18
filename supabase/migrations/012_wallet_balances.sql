@@ -66,7 +66,7 @@ begin
     raise exception 'Tasdiqlangan sotuvlar sonidan kam son kirita olmaysiz' using errcode='23514';
   end if;
   return new;
-end $;
+end $$;
 create trigger wallet_reported_sales_guard before insert or update or delete on public.operator_sales_monthly
  for each row execute function public.guard_wallet_reported_sales();
 
