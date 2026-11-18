@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, CircleDollarSign, Gift, Wallet } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useWallet, type WalletMovement } from '@/lib/wallet';
+import { useAcceptanceMonth } from '@/lib/acceptance';
 import { formatNumber, formatUzs } from '@/lib/format';
 import { formatDateTimeUz, tashkentToday } from '@/lib/dates';
 import { humanError } from '@/lib/uz';
@@ -28,6 +29,7 @@ export default function WalletAdmin() {
  const ops=useQuery({queryKey:['wallet-admin-operators'],queryFn:async()=>await unwrap(supabase.from('profiles')
    .select('id,full_name').eq('role','operator').order('full_name')) as Op[]});
  const wallet=useWallet(op||undefined);
+ const acceptanceMonth=useAcceptanceMonth(op||undefined,start);
  const sales=useQuery({queryKey:['wallet-admin-sales',op,start],enabled:!!op,queryFn:async()=>
    ((await unwrap(supabase.from('operator_sales_monthly').select('sold_orders,unique_calls')
      .eq('operator_id',op).eq('month_start',start))) as Sales[])[0]??null});
@@ -85,7 +87,7 @@ export default function WalletAdmin() {
   }catch(err){toast('error',humanError(err));}finally{setBusy(null);}
  }
  return <div className="space-y-4">
-  <Notice tone="info">Yangi tizim: tasdiqlangan qabul uchun 1 000 so‘m, tasdiqlangan sotuv uchun qo‘shimcha 5 000 so‘m. Sotuv tasdiqlanmaguncha Hold’da turadi. “To‘lovni qayd etish” bank orqali haqiqiy o‘tkazma qilmaydi.</Notice>
+  <Notice tone="info">Qabul puli kunlik minimum bajarilgandagina hisoblanadi: shu kundagi barcha tasdiqlangan qabullar × 1 000 so‘m. Minimumni “KPI mezonlari” orqali admin o‘zgartiradi. Sotuv tasdiqlanmaguncha 5 000 so‘mdan Hold’da turadi, tasdiqlangach Asosiy balansga o‘tadi. “To‘lovni qayd etish” haqiqiy bank o‘tkazmasi emas.</Notice>
   <Card className="space-y-3 p-4">
    <Field label="Operator"><Select value={op} onChange={e=>setOp(e.target.value)}>
     <option value="">Operatorni tanlang</option>
@@ -103,11 +105,15 @@ export default function WalletAdmin() {
     {(sales.isLoading||approved.isLoading||monthReports.isLoading)&&<LoadingBlock rows={1}/>}
     {(sales.isError||approved.isError||monthReports.isError)&&<ErrorState message={humanError(sales.error??approved.error??monthReports.error)} onRetry={()=>{void sales.refetch();void approved.refetch();void monthReports.refetch();}}/>}
     <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-     <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Tasdiqlangan qabul</p><b>{formatNumber(accepted)}</b></div>
+     <div className="rounded-xl bg-neutral-50 p-3">
+       <p className="text-xs text-neutral-500">Tasdiqlangan qabul</p><b>{formatNumber(accepted)}</b>
+       <p className="mt-1 text-[11px] text-neutral-500">Haq to‘lanadigan: {acceptanceMonth.data?formatNumber(Number(acceptanceMonth.data.payable_accepted)):'—'} ta</p>
+     </div>
      <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Kiritilgan sotuv</p><b>{formatNumber(reported)}</b></div>
      <div className="rounded-xl bg-green-50 p-3"><p className="text-xs text-green-700">Tasdiqlangan sotuv</p><b>{formatNumber(confirmed)}</b></div>
      <div className="rounded-xl bg-yellow-50 p-3"><p className="text-xs text-yellow-800">Hold</p><b>{formatNumber(pending)} ta</b></div>
     </div>
+    {acceptanceMonth.isError&&<Notice tone="warn">Qabul puli bo‘yicha natija yuklanmadi. 015 SQL migratsiyasini tekshiring.</Notice>}
     {!sales.data&&<Notice tone="warn">Sotuv soni hali kiritilmagan. Admin → Sozlamalar → “Oylik savdo ko‘rsatkichlari”da Unique Calls va Sotuv sonini kiriting.</Notice>}
     <form onSubmit={confirmSales} className="space-y-3">
      <Field label={`Tasdiqlanadigan yangi sotuv soni (maks. ${pending})`}>

@@ -42,7 +42,7 @@ export function humanError(e: unknown): string {
   // Bizning RPC funksiyalarimiz o‘zbekcha xabar bilan istisno tashlaydi
   if (err?.code && ['22023', '42501', '23505', 'P0002'].includes(err.code) && msg) return msg;
   if (/invalid login credentials/i.test(msg)) return 'Email yoki parol noto‘g‘ri.';
-  if (/email not confirmed/i.test(msg)) return 'Email manzilingiz tasdiqlanmagan. Administratorga murojaat qiling.';
+  if (/email not confirmed/i.test(msg)) return 'Email manzilingiz hali tasdiqlanmagan. Pochtangizdagi tasdiqlash havolasini bosing.';
   if (/banned|user is banned/i.test(msg)) return 'Hisobingiz faol emas. Administratorga murojaat qiling.';
   if (/rate limit|too many|over_email_send_rate_limit|security purposes/i.test(msg)) {
     return 'Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring.';

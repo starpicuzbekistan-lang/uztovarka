@@ -77,7 +77,9 @@ export default function Login() {
             <Link to="/parolni-tiklash" className="text-sm font-medium text-neutral-600 underline decoration-brand decoration-2 underline-offset-4">Parolni unutdingizmi?</Link>
           </div>
         </form>
-        <p className="mt-5 text-center text-xs text-neutral-400">Hisob yaratish faqat administrator tomonidan amalga oshiriladi.</p>
+        <p className="mt-5 text-center text-sm text-neutral-600">
+          Hali hisobingiz yo‘qmi? <Link to="/royxatdan-otish" className="font-bold text-ink underline decoration-brand decoration-2 underline-offset-4">Ro‘yxatdan o‘tish</Link>
+        </p>
       </div>
     </div>
   );

@@ -48,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (!p.is_active) {
-      setBlockedMessage('Hisobingiz faol emas. Administratorga murojaat qiling.');
+      setBlockedMessage(p.signup_requested_at && !p.signup_reviewed_at
+        ? 'Ro‘yxatdan o‘tish arizangiz qabul qilingan. Administrator tasdiqlashini kuting.'
+        : 'Hisobingiz faol emas. Administratorga murojaat qiling.');
       await supabase.auth.signOut();
       setProfile(null);
       return;

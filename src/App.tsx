@@ -8,6 +8,7 @@ import { supabaseConfigured } from './lib/supabase';
 import { Logo } from './components/Logo';
 
 import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import SetPassword from './pages/auth/SetPassword';
 import Home from './pages/operator/Home';
@@ -62,6 +63,7 @@ export default function App() {
       <Routes>
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
+          <Route path="/royxatdan-otish" element={<Register />} />
           <Route path="/parolni-tiklash" element={<ForgotPassword />} />
         </Route>
         <Route path="/parol-o-rnatish" element={<SetPassword />} />
