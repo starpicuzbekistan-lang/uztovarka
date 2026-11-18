@@ -3,14 +3,16 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   LayoutDashboard, Users, Calculator, ClipboardCheck, Package, Boxes, BookOpen, Newspaper, Megaphone,
-  Banknote, History, Settings, LogOut, Menu, X, type LucideIcon,
+  Banknote, History, Settings, LogOut, Menu, X, MessageCircle, type LucideIcon,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/auth/AuthContext';
+import { useChatUnread } from '@/lib/supportChat';
 
 const ITEMS: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/admin', label: 'Boshqaruv paneli', icon: LayoutDashboard, end: true },
   { to: '/admin/operatorlar', label: 'Operatorlar', icon: Users },
+  { to: '/admin/chat', label: 'Chat', icon: MessageCircle },
   { to: '/admin/kpi', label: 'KPI va oyliklar', icon: Calculator },
   { to: '/admin/hisobotlar', label: 'Kunlik hisobotlar', icon: ClipboardCheck },
   { to: '/admin/mahsulotlar', label: 'Mahsulotlar', icon: Package },
@@ -40,6 +42,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 export function AdminLayout() {
   const [open, setOpen] = useState(false);
   const { profile, signOut } = useAuth();
+  const { data: chatUnread = 0 } = useChatUnread();
   return (
     <div className="min-h-screen bg-surface lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-ink p-4 lg:flex">
@@ -58,7 +61,10 @@ export function AdminLayout() {
           <Menu className="h-5 w-5" />
         </button>
         <Link to="/admin"><Logo /></Link>
-        <span className="w-9" />
+        <Link to="/admin/chat" aria-label={`Chat${chatUnread?', '+chatUnread+' yangi xabar':''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-neutral-100">
+          <MessageCircle size={21}/>
+          {chatUnread>0&&<span className="absolute right-0 top-0 rounded-full bg-brand px-1 text-[10px] font-bold">{chatUnread>9?'9+':chatUnread}</span>}
+        </Link>
       </header>
 
       {open && (

@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogOut } from 'lucide-react';
 import OperatorMotivation from '@/components/OperatorMotivation';
 import TeamsSection from '@/components/TeamsSection';
 import SalesPerformance from '@/components/SalesPerformance';
+import { useWallet, useMissingDays } from '@/lib/wallet';
 import { useAuth } from '@/auth/AuthContext';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useOperatorMonth } from '@/lib/useMonthData';
@@ -60,8 +61,23 @@ function InfoSection() {
       </dl>
       </Card>
       <OperatorMotivation operatorId={profile.id} />
+      <ProfileAbsenceSummary operatorId={profile.id} />
     </div>
   );
+}
+
+function ProfileAbsenceSummary({operatorId}:{operatorId:string}){
+ const w=useWallet(operatorId);
+ return <Card className="space-y-2 p-4">
+  <h3 className="font-bold">Davomat va jarimalar</h3>
+  <p className="text-xs text-neutral-500">Hisobot topshirilmagan ish kunlari uchun admin belgilagan jarima.</p>
+  {w.isLoading&&<LoadingBlock rows={1}/>}
+  {w.isError&&<ErrorState message={humanError(w.error)} onRetry={()=>void w.refetch()}/>}
+  {w.data&&<div className="flex justify-between gap-3 text-sm">
+    <span>Hisobotsiz kunlar: <b>{w.data.missing_days}</b></span>
+    <span className="font-bold text-red-700">−{formatNumber(Number(w.data.penalty_uzs))} so‘m</span>
+  </div>}
+ </Card>;
 }
 
 function useMonthState() {
@@ -74,6 +90,7 @@ function PerformanceSection() {
   const { profile } = useAuth();
   const { ym, setYm } = useMonthState();
   const q = useOperatorMonth(profile?.id, ym.y, ym.m);
+  const missed=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
   const r = q.data?.result;
   return (
     <div className="space-y-4">
@@ -96,6 +113,11 @@ function PerformanceSection() {
             <StatCard label="Qizil kunlar" value={r.counts.red} tone="red" />
           </div>
           <p className="text-xs text-neutral-500">Kelmagan kunlar: {r.counts.absences} · Ta’tillar: {r.counts.leaves}</p>
+          {missed.data&&<Card className="space-y-1 p-3 text-sm">
+             <div className="flex justify-between gap-2"><span>Hisobot topshirilmagan kunlar</span><b>{missed.data.length} kun</b></div>
+             <div className="flex justify-between gap-2"><span>Jarima</span><b className="text-red-700">−{formatNumber(missed.data.reduce((a,m)=>a+Number(m.penalty_uzs),0))} so‘m</b></div>
+          </Card>}
+          {missed.isError&&<p className="text-xs text-amber-700">Davomat jarimasi ma’lumotlarini yuklab bo‘lmadi.</p>}
           {profile?.id && q.data && <SalesPerformance operatorId={profile.id} y={ym.y} m={ym.m} reports={q.data.reports} workedDays={r.workedDays} />}
         </>
       )}

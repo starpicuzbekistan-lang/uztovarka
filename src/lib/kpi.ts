@@ -25,8 +25,8 @@ export interface KpiSettings {
 export const DEFAULT_SETTINGS: KpiSettings = {
   monthlyTargetUzs: 2_000_000,
   workingDays: 30,
-  dailyTarget: 60,
-  minThreshold: 50,
+  dailyTarget: 50,
+  minThreshold: 40,
   shortfallCoefUzs: 1_000,
   bonusCoefUzs: 2_000,
   absenceRule: 'prorata',

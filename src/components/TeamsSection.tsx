@@ -78,7 +78,7 @@ export default function TeamsSection() {
        </>}
      </Card>
      <Card className="space-y-4 p-4 sm:p-5">
-       <div className="flex items-center gap-2"><ArrowLeftRight size={18} className="text-neutral-700"/><h2 className="font-bold">Jamoalar jangi</h2></div>
+       <div className="flex items-center gap-2"><ArrowLeftRight size={18} className="text-neutral-700"/><h2 className="font-bold">Teams Battle</h2></div>
        <div className="grid grid-cols-2 gap-2">
          {all.map(team=><div key={team.code} className={clsx('relative space-y-2 rounded-xl border-2 p-3',winner===team.code?TEAM[team.code].ring:'border-neutral-200',TEAM[team.code].light)}>
            {winner===team.code&&<div className="absolute -top-3 right-1 rounded-full bg-yellow-300 px-2 py-1 text-[9px] font-bold"><Trophy size={11} className="mr-1 inline"/>YETAKCHI</div>}
