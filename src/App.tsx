@@ -21,6 +21,7 @@ import SetDetail from './pages/operator/SetDetail';
 import Scripts from './pages/operator/Scripts';
 import ScriptDetail from './pages/operator/ScriptDetail';
 import Profile from './pages/operator/Profile';
+import OperatorBadgesPage from './pages/operator/Badges';
 
 // Admin qismi alohida bo‘lak (chunk): operatorlar uni yuklab olmaydi.
 const Overview = lazy(() => import('./pages/admin/Overview'));
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="skriptlar" element={<Scripts />} />
             <Route path="skriptlar/:id" element={<ScriptDetail />} />
             <Route path="profil" element={<Profile />} />
+            <Route path="profil/badgelar" element={<OperatorBadgesPage />} />
           </Route>
         </Route>
 
