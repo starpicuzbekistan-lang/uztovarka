@@ -36,8 +36,7 @@ export default function WalletAdmin() {
      .eq('operator_id',op).eq('month_start',start))) as Approved[])[0]??null});
  const monthReports=useQuery({queryKey:['wallet-admin-accepted-month',op,start],enabled:!!op,queryFn:async()=>await unwrap(supabase.from('daily_reports')
    .select('accepted_orders').eq('operator_id',op).eq('status','approved').eq('is_demo',false)
-   .gte('report_date',start).lt('report_date',new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),1)).toISOString().slice(0,10)))
-   as {accepted_orders:number}[]});
+   .gte('report_date',start).lt('report_date',new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),1)).toISOString().slice(0,10))) as {accepted_orders:number}[]});
  const movements=useQuery({queryKey:['wallet-admin-movements',op],enabled:!!op,queryFn:async()=>await unwrap(supabase.from('wallet_movements')
   .select('id,operator_id,action,amount_uzs,note,created_at').eq('operator_id',op)
   .order('created_at',{ascending:false}).limit(30)) as WalletMovement[]});
