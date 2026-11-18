@@ -23,7 +23,7 @@ export default function OperatorMotivation({ operatorId }: { operatorId: string 
   const accepted = reports.data?.result.approvedOrders ?? 0;
   const target = goal.data?.target_orders;
   const progress = target ? accepted / target * 100 : 0;
-  const earned = badges.data ?? [];
+  const earned = badges.data?.items ?? [];
 
   return <div className="space-y-4">
     <Card className="space-y-3 p-4 sm:p-5">
@@ -57,6 +57,8 @@ export default function OperatorMotivation({ operatorId }: { operatorId: string 
         </Link>
       </div>
       <BadgeExplanation/>
+      {badges.data?.autoWarning&&<p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{badges.data.autoWarning}</p>}
+      {badges.data?.specialWarning&&<p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">{badges.data.specialWarning}</p>}
       {badges.isLoading?<LoadingBlock rows={1}/>:
        badges.isError?<ErrorState message={humanError(badges.error)} onRetry={()=>void badges.refetch()}/>:
        earned.length===0?<div className="rounded-xl bg-neutral-50 p-4 text-sm text-neutral-500">
