@@ -21,8 +21,8 @@ export default function AdminSettings() {
       <CategoryCard title="Maqola kategoriyalari" table="article_categories" />
       <DemoCard />
       <Card className="p-4 text-sm text-neutral-600">
-        <h2 className="mb-1 font-bold text-ink">KPI va maosh sozlamalari</h2>
-        Maosh koeffitsiyentlari, ish kunlari va kelmagan kunlar qoidasi “KPI va oyliklar” bo‘limidagi “KPI sozlamalari” orqali, amal qilish sanasi bilan versiyalanadi.
+        <h2 className="mb-1 font-bold text-ink">KPI mezonlari va balanslar</h2>
+        Kunlik norma: yashil ≥50, sariq 40–49, qizil 0–39. To‘lovlar, sotuv tasdiqlari va bonuslar “KPI va oyliklar” bo‘limidagi “Balanslarni boshqarish” sahifasida yuritiladi.
       </Card>
     </div>
   );
