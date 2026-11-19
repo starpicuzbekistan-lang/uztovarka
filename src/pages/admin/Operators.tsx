@@ -15,6 +15,7 @@ const isOnline = (p: PresenceRecord | undefined, now: number) => !!p && p.online
 type AdminAction =
   | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator'; position?: string; employee_id?: string }
   | { action: 'set_active'; user_id: string; active: boolean }
+  | { action: 'confirm_signup_email'; user_id: string }
   | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' }
   | { action: 'send_reset'; email: string }
   | { action: 'resend_invite'; email: string };
@@ -81,7 +82,7 @@ export default function Operators() {
         action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4" /> Yangi operator</Button>} />
       <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
         <h2 className="font-bold text-amber-950">Tasdiqlashni kutayotgan arizalar · {pendingRegistrations.length}</h2>
-        <p className="text-xs text-amber-900/80">Operator ro‘yxatdan o‘tib, email va parol tanlagan. Tasdiqlangach, o‘sha parol bilan kiradi. Email tasdiqlash yoqilgan bo‘lsa, emailni ham tasdiqlashi kerak.</p>
+        <p className="text-xs text-amber-900/80">Operator o‘zi email va parol tanlaydi. Sen tasdiqlaganingda uning email holati ham avtomatik tasdiqlanadi (yangilangan admin-users funksiyasi o‘rnatilgach). Ilgari tasdiqlanganlar uchun pastda «Kirishdagi email xatosini tuzatish» tugmasi mavjud.</p>
         {pendingRegistrations.length===0&&<p className="text-sm text-neutral-600">Hozircha yangi ariza yo‘q.</p>}
         {pendingRegistrations.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-3">
           <div className="min-w-0"><p className="truncate font-semibold">{p.full_name}</p><p className="truncate text-xs text-neutral-500">{p.email}</p></div>
@@ -144,6 +145,16 @@ export default function Operators() {
                 <Button size="sm" variant="outline" disabled={self && p.is_active} onClick={() => setToggle(p)}>
                   <Power className="h-4 w-4" /> {p.is_active ? 'Nofaol qilish' : 'Faollashtirish'}
                 </Button>
+                {p.role==='operator' && p.is_active && p.signup_requested_at && (
+                  <Button size="sm" variant="outline"
+                    disabled={run.isPending}
+                    loading={run.isPending && run.variables?.action==='confirm_signup_email'}
+                    onClick={()=>run.mutate({ action:'confirm_signup_email', user_id:p.id },{
+                      onSuccess:()=>toast('success','Operator emaili admin tomonidan tasdiqlandi. Endi o‘z paroli bilan kira oladi.')
+                    })}>
+                    <ShieldCheck className="h-4 w-4"/> Kirishdagi email xatosini tuzatish
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" disabled={self} onClick={() => setRoleTarget(p)}>
                   <ShieldCheck className="h-4 w-4" /> Rolni o‘zgartirish
                 </Button>
