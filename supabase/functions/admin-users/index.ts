@@ -75,12 +75,44 @@ Deno.serve(async (req) => {
         const id = String(body.user_id ?? '');
         const active = Boolean(body.active);
         if (id === userData.user.id && !active) return json({ error: 'O‘z hisobingizni o‘chira olmaysiz' }, 400);
-        // Auth darajasida bloklash: faol sessiyalar ham yangilanishda to‘xtaydi
-        const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: active ? 'none' : '876000h' });
-        if (error) return json({ error: 'Holatni o‘zgartirib bo‘lmadi' }, 400);
-        await admin.from('profiles').update({ is_active: active }).eq('id', id);
+        // Operator mustaqil ro‘yxatdan o‘tganida ikki marta tasdiq talab qilmaymiz.
+        // Admin tasdig‘i shu yangi operatorning email statusini ham yakunlaydi.
+        const { data: target, error: targetErr } = await admin.from('profiles')
+          .select('role,is_active,signup_requested_at').eq('id', id).maybeSingle();
+        if (targetErr || !target) return json({ error: 'Operator profili topilmadi' }, 404);
+
+        const approvalOfSignup = active && target.role === 'operator' && !!target.signup_requested_at;
+        const authChange = approvalOfSignup
+          ? { ban_duration: 'none', email_confirm: true }
+          : { ban_duration: active ? 'none' : '876000h' };
+        const { error } = await admin.auth.admin.updateUserById(id, authChange);
+        if (error) return json({ error: 'Auth hisobini tasdiqlab bo‘lmadi: ' + error.message }, 400);
+
+        const { error: profileErr } = await admin.from('profiles')
+          .update({ is_active: active }).eq('id', id);
+        if (profileErr) {
+          if (active) await admin.auth.admin.updateUserById(id, { ban_duration: '876000h' });
+          return json({ error: 'Profilni faollashtirib bo‘lmadi: ' + profileErr.message }, 500);
+        }
         if (!active) await admin.auth.admin.signOut(id, 'global').catch(() => {});
-        await audit(active ? 'user_activated' : 'user_deactivated', id, { active });
+        await audit(active ? 'user_activated' : 'user_deactivated', id, {
+          active, confirmed_by_admin: approvalOfSignup,
+        });
+        return json({ ok: true, email_confirmed_by_admin: approvalOfSignup });
+      }
+
+      // Eski versiyada admin tasdiqlagan, lekin Auth emaili hali tasdiqlanmagan
+      // operatorlar uchun bir martalik tuzatish. Faqat faol, o'zi ro'yxatdan o'tgan
+      // operatorga ruxsat; roli va paroli o'zgartirilmaydi.
+      case 'confirm_signup_email': {
+        const id = String(body.user_id ?? '');
+        const { data: p, error: profileErr } = await admin.from('profiles')
+          .select('role,is_active,signup_requested_at').eq('id', id).maybeSingle();
+        if (profileErr || !p || p.role !== 'operator' || !p.is_active || !p.signup_requested_at)
+          return json({ error: 'Faqat admin tasdiqlagan operator uchun ruxsat' }, 403);
+        const { error } = await admin.auth.admin.updateUserById(id, { email_confirm: true });
+        if (error) return json({ error: 'Emailni faollashtirib bo‘lmadi: ' + error.message }, 400);
+        await audit('signup_email_approved', id, { confirmed_by_admin: true });
         return json({ ok: true });
       }
 

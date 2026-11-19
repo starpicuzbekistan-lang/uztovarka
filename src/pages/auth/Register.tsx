@@ -38,7 +38,15 @@ export default function Register() {
       setSent(true);
       setPassword('');setAgain('');
     } catch(err) {
-      setError(humanError(err));
+      const authErr=err as {status?:number;code?:string;message?:string};
+      const msg=authErr.message??'';
+      if(authErr.status===429 || /rate limit|too many|security purposes|over_email_send_rate_limit/i.test(msg)){
+        setError('Juda ko‘p urinish yoki email yuborish limiti. Ariza allaqachon yuborilgan bo‘lsa, qayta ro‘yxatdan o‘tmang. Administratorga murojaat qiling; cheklov tugagach urinib ko‘ring.');
+      }else if(/already registered|user already exists/i.test(msg)){
+        setError('Bu email bilan hisob mavjud. Qayta ro‘yxatdan o‘tish o‘rniga Kirish sahifasidan foydalaning yoki admin bilan bog‘laning.');
+      }else{
+        setError(humanError(err));
+      }
     } finally {setBusy(false);}
   }
 
@@ -52,7 +60,7 @@ export default function Register() {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-700"><CheckCircle2 size={32}/></span>
         <h1 className="text-xl font-extrabold">Ariza yuborildi!</h1>
         <p className="text-sm leading-relaxed text-neutral-700">Admin tasdiqlashini kuting. Hisobingiz faollashtirilgandan keyin o‘zingiz tanlagan parol bilan kirishingiz mumkin.</p>
-        <Notice tone="info">Email tasdiqlash yoqilgan bo‘lsa, Gmail pochtangizdagi tasdiqlash havolasini ham bosing. Shu vaqtgacha tizimga kirish yopiq bo‘ladi.</Notice>
+        <Notice tone="info">Qayta ro‘yxatdan o‘tish shart emas. Admin tasdiqlaganidan keyin shu email va parol bilan kiring. Agar kirishda xatolik bo‘lsa, adminga murojaat qiling.</Notice>
         <Link to="/login" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-brand px-5 text-sm font-bold text-ink">Kirish sahifasiga qaytish</Link>
       </div>:<form onSubmit={submit} noValidate className="space-y-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-card">
         <div className="flex items-center gap-2"><UserPlus size={20} className="text-amber-600"/><h1 className="text-xl font-bold">Ro‘yxatdan o‘tish</h1></div>
