@@ -101,6 +101,21 @@ Deno.serve(async (req) => {
         return json({ ok: true, email_confirmed_by_admin: approvalOfSignup });
       }
 
+      // Eski versiyada admin tasdiqlagan, lekin Auth emaili hali tasdiqlanmagan
+      // operatorlar uchun bir martalik tuzatish. Faqat faol, o'zi ro'yxatdan o'tgan
+      // operatorga ruxsat; roli va paroli o'zgartirilmaydi.
+      case 'confirm_signup_email': {
+        const id = String(body.user_id ?? '');
+        const { data: p, error: profileErr } = await admin.from('profiles')
+          .select('role,is_active,signup_requested_at').eq('id', id).maybeSingle();
+        if (profileErr || !p || p.role !== 'operator' || !p.is_active || !p.signup_requested_at)
+          return json({ error: 'Faqat admin tasdiqlagan operator uchun ruxsat' }, 403);
+        const { error } = await admin.auth.admin.updateUserById(id, { email_confirm: true });
+        if (error) return json({ error: 'Emailni faollashtirib bo‘lmadi: ' + error.message }, 400);
+        await audit('signup_email_approved', id, { confirmed_by_admin: true });
+        return json({ ok: true });
+      }
+
       case 'set_role': {
         const id = String(body.user_id ?? '');
         const role = body.role === 'admin' ? 'admin' : 'operator';
