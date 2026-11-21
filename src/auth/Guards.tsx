@@ -10,7 +10,10 @@ export function RequireAuth({ area }: { area: Area }) {
   if (loading) return <FullPageSpinner />;
   if (!session || !profile) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (needsPassword) return <Navigate to="/parol-o-rnatish" replace />;
-  if (!canAccess({ role: profile.role, isActive: profile.is_active }, area)) return <AccessDenied />;
+  if (!canAccess({ role: profile.role, isActive: profile.is_active }, area)) {
+    if (loc.pathname === '/') return <Navigate to={homeFor({role:profile.role,isActive:profile.is_active})} replace />;
+    return <AccessDenied />;
+  }
   return <Outlet />;
 }
 
@@ -28,5 +31,6 @@ export function PublicOnly() {
 export function RoleHomeRedirect({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (profile?.role === 'manager') return <Navigate to="/manager" replace />;
   return <>{children}</>;
 }
