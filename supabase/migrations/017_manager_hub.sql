@@ -1,4 +1,4 @@
--- 017: Manager Hub + administrator-defined visual KPI day colors + tasks.
+-- 017: Manager Hub roles, team-scoped permissions and tasks.
 -- Run AFTER 016_manager_role.sql has committed. No payroll/balance formula changes.
 begin;
 
@@ -61,48 +61,7 @@ create policy operator_assignments_manager_read on public.operator_team_assignme
   for select to authenticated
   using(public.manager_has_operator(operator_id,effective_month));
 
--- Manually adjusted colors are a separate VISUAL classification, never a salary override.
--- The operator's actual approved counts and payroll calculations are untouched.
-create table public.operator_day_colors (
-  operator_id uuid not null references public.profiles(id) on delete cascade,
-  report_date date not null,
-  color text not null check(color in ('green','yellow','red')),
-  reason text not null check(length(btrim(reason))>=3),
-  updated_by uuid not null references public.profiles(id),
-  updated_at timestamptz not null default now(),
-  primary key(operator_id,report_date)
-);
-create index operator_day_colors_date_idx on public.operator_day_colors(report_date);
-alter table public.operator_day_colors enable row level security;
-create policy day_colors_admin on public.operator_day_colors
-  for all to authenticated using(public.is_admin()) with check(public.is_admin());
-create policy day_colors_operator_read on public.operator_day_colors
-  for select to authenticated using(operator_id=auth.uid() and public.is_active_user());
-create policy day_colors_manager_read on public.operator_day_colors
-  for select to authenticated using(public.manager_has_operator(operator_id,report_date));
-
-create or replace function public.validate_operator_day_color()
-returns trigger language plpgsql security definer set search_path=public as $$
-begin
-  if not public.is_admin() then
-    raise exception 'Faqat administrator KPI rangini belgilaydi' using errcode='42501';
-  end if;
-  if not exists(
-    select 1 from public.daily_reports r
-     where r.operator_id=new.operator_id and r.report_date=new.report_date
-       and r.status='approved' and r.is_demo=false
-  ) then
-    raise exception 'Faqat tasdiqlangan haqiqiy hisobot uchun rang belgilang' using errcode='22023';
-  end if;
-  new.updated_by:=auth.uid();
-  new.updated_at:=now();
-  return new;
-end $$;
-create trigger validate_operator_day_color
-  before insert or update on public.operator_day_colors
-  for each row execute function public.validate_operator_day_color();
-
--- Report counts, configured daily target, and optional admin color; exposed only to assigned manager.
+-- Manager reports use baseline automatic day colors; 018 introduces editable limits.
 create or replace function public.get_manager_team_reports(p_start date, p_end date)
 returns table(
   operator_id uuid, report_date date, accepted_orders integer,
@@ -116,15 +75,12 @@ begin
   return query
   select r.operator_id, r.report_date, r.accepted_orders, r.status::text,
     case when r.status='approved' then
-      coalesce(oc.color,
-        case when r.accepted_orders>=coalesce(ks.daily_target,50) then 'green'
-             when r.accepted_orders>=coalesce(ks.min_threshold,40) then 'yellow'
-             else 'red' end)
+      case when r.accepted_orders>=coalesce(ks.daily_target,50) then 'green'
+           when r.accepted_orders>=coalesce(ks.min_threshold,40) then 'yellow'
+           else 'red' end
     else null::text end as day_color,
-    (r.status='approved' and oc.color is not null) as manual_color
+    false as manual_color
   from public.daily_reports r
-  left join public.operator_day_colors oc
-    on oc.operator_id=r.operator_id and oc.report_date=r.report_date
   left join lateral (
     select v.daily_target,v.min_threshold
     from public.kpi_setting_versions v
@@ -200,7 +156,7 @@ begin
  insert into public.notifications(user_id,kind,title,message,link)
  select manager_id,'system','Vazifa tekshiruvda',title,'/manager/vazifalar'
  from public.manager_tasks where id=p_task;
-end $;
+end $$;
 
 create or replace function public.manager_review_task(p_task uuid,p_approve boolean,p_feedback text default null)
 returns void language plpgsql security definer set search_path=public as $$
@@ -222,32 +178,13 @@ begin
  values(v_task.operator_id,'system',
    case when p_approve then 'Vazifa tasdiqlandi' else 'Vazifa qaytarildi' end,
    left(v_task.title,160),'/vazifalar');
-end $;
+end $$;
 revoke all on function public.manager_create_task(uuid,text,text,text,text,date),
  public.operator_submit_task(uuid),public.manager_review_task(uuid,boolean,text) from public,anon;
 grant execute on function public.manager_create_task(uuid,text,text,text,text,date),
  public.operator_submit_task(uuid),public.manager_review_task(uuid,boolean,text) to authenticated;
 
--- Record who set a visual classification. Do not overwrite previous audit events.
-create or replace function public.audit_manager_day_color()
-returns trigger language plpgsql security definer set search_path=public as $
-begin
- if tg_op='DELETE' then
-   insert into public.audit_logs(actor_id,action,entity,entity_id,before_data,after_data)
-   values(auth.uid(),'day_color_reset','operator_day_colors',
-     old.operator_id::text||':'||old.report_date::text,to_jsonb(old),null);
-   return old;
- end if;
- insert into public.audit_logs(actor_id,action,entity,entity_id,before_data,after_data)
- values(auth.uid(),'day_color_set','operator_day_colors',
-   new.operator_id::text||':'||new.report_date::text,
-   case when tg_op='UPDATE' then to_jsonb(old) else null end,to_jsonb(new));
- return new;
-end $;
-create trigger audit_manager_day_color after insert or update or delete on public.operator_day_colors
-  for each row execute function public.audit_manager_day_color();
-
-revoke all on public.manager_team_assignments,public.manager_tasks,public.operator_day_colors from anon;
-grant select,insert,update,delete on public.manager_team_assignments,public.operator_day_colors to authenticated;
+revoke all on public.manager_team_assignments,public.manager_tasks from anon;
+grant select,insert,update,delete on public.manager_team_assignments to authenticated;
 grant select on public.manager_tasks to authenticated;
 commit;
