@@ -9,7 +9,7 @@ export interface Profile {
   employee_id: string | null;
   phone: string | null;
   avatar_url: string | null;
-  role: 'admin' | 'operator';
+  role: 'admin' | 'manager' | 'operator';
   is_active: boolean;
   signup_requested_at?: string | null;
   signup_reviewed_at?: string | null;
