@@ -68,7 +68,7 @@ export function ManagerHome(){
  const total=todayReports.reduce((a,b)=>a+b.accepted_orders,0);
  const green=todayReports.filter(r=>r.day_color==='green').length;
  const alerts=ops.length-green;
- const announced=useQuery({queryKey:['manager-announcements'],queryFn:async()=>await unwrap(supabase.from('announcements').select('id,title,body,created_at').eq('status','published').order('created_at',{ascending:false}).limit(1)) as {id:string;title:string;body:string|null;created_at:string}[]});
+ const announced=useQuery({queryKey:['manager-announcements'],queryFn:async()=>await unwrap(supabase.from('announcements').select('id,title,message,created_at').eq('status','published').order('created_at',{ascending:false}).limit(1)) as {id:string;title:string;message:string;created_at:string}[]});
  const late=(tasks.data??[]).filter(t=>t.status!=='completed'&&t.due_date<today);
  return <div className="space-y-4">
    <Heading title="Bosh sahifa" description="Jamoangizning bugungi natijalari va muhim vazifalar"/>
@@ -87,7 +87,7 @@ export function ManagerHome(){
    <ColorBar rows={todayReports}/>
    <section className={card}>
      <div className="flex items-center gap-2"><Megaphone size={18} className="text-amber-600"/><h2 className="font-bold">Admin e’loni</h2></div>
-     {announced.data?.length?<div className="mt-2"><p className="font-semibold">{announced.data[0].title}</p><p className="mt-1 line-clamp-3 text-sm text-neutral-500">{announced.data[0].body}</p></div>:<p className="mt-2 text-sm text-neutral-500">Hozircha e’lonlar yo‘q.</p>}
+     {announced.data?.length?<div className="mt-2"><p className="font-semibold">{announced.data[0].title}</p><p className="mt-1 line-clamp-3 text-sm text-neutral-500">{announced.data[0].message}</p></div>:<p className="mt-2 text-sm text-neutral-500">Hozircha e’lonlar yo‘q.</p>}
    </section>
    <section className={card}>
      <h2 className="flex items-center gap-2 font-bold"><AlertTriangle size={18} className="text-amber-500"/> Muhim ogohlantirishlar</h2>
