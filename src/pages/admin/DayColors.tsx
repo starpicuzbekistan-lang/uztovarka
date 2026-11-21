@@ -5,7 +5,7 @@ import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { classifyDay, DEFAULT_SETTINGS, pickSettings, type DayStatus } from '@/lib/kpi';
 import { rowToVersion, type SettingsRow } from '@/lib/types';
-import { formatDateUz, tashkentToday } from '@/lib/dates';
+import { formatDateUz, periodForMonth, tashkentToday } from '@/lib/dates';
 import { humanError } from '@/lib/uz';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, PageHeader, Select, Textarea, useToast } from '@/components/ui';
 
@@ -16,7 +16,8 @@ export default function AdminDayColors(){
  const {profile}=useAuth(),toast=useToast(),qc=useQueryClient();
  const [month,setMonth]=useState(tashkentToday().slice(0,7)),[operator,setOperator]=useState('');
  const [edit,setEdit]=useState<Daily|null>(null),[color,setColor]=useState<DayStatus>('green'),[reason,setReason]=useState('');
- const start=month+'-01',end=month+'-31';
+ const [year,mo]=month.split('-').map(Number);
+ const start=month+'-01',end=periodForMonth(year,mo).end;
  const operators=useQuery({queryKey:['day-color-ops'],queryFn:async()=>await unwrap(supabase.from('profiles').select('id,full_name').eq('role','operator').order('full_name')) as {id:string;full_name:string}[]});
  const reports=useQuery({queryKey:['day-color-reports',month,operator],queryFn:async()=>{
    let q=supabase.from('daily_reports').select('id,operator_id,report_date,accepted_orders,operator:profiles!daily_reports_operator_id_fkey(full_name)').eq('status','approved').eq('is_demo',false).gte('report_date',start).lte('report_date',end).order('report_date',{ascending:false}).limit(500);
