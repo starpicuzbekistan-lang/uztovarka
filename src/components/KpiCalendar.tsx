@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Ban, Check, Clock, Coffee, Minus, Plane, RotateCcw, UserX, X, type LucideIcon } from 'lucide-react';
 import { calendarGrid, WEEKDAYS_UZ_SHORT, type Period } from '@/lib/dates';
 import { describeDay, type DayEntry, type KpiSettings } from '@/lib/kpi';
+import type { KpiColorThresholds } from '@/lib/kpiColors';
 
 type State = ReturnType<typeof describeDay>['state'];
 
@@ -18,8 +19,8 @@ export const STATE_META: Record<State, { label: string; cell: string; icon?: Luc
   none: { label: 'Natija kiritilmagan', cell: 'bg-white text-neutral-500 border-neutral-200' },
 };
 
-export function KpiCalendar({ period, entries, settings, today, selected, onSelect }: {
-  period: Period; entries: DayEntry[]; settings: KpiSettings; today: string; selected?: string | null; onSelect: (d: string) => void;
+export function KpiCalendar({ period, entries, settings, colors, today, selected, onSelect }: {
+  period: Period; entries: DayEntry[]; settings: KpiSettings; colors?: KpiColorThresholds; today: string; selected?: string | null; onSelect: (d: string) => void;
 }) {
   const map = new Map(entries.map((e) => [e.date, e]));
   const cells = calendarGrid(period);
@@ -31,7 +32,7 @@ export function KpiCalendar({ period, entries, settings, today, selected, onSele
       <div className="grid grid-cols-7 gap-1.5">
         {cells.map((date, i) => {
           if (!date) return <span key={`b${i}`} />;
-          const d = describeDay(map.get(date), settings);
+          const d = describeDay(map.get(date), settings, colors);
           const meta = STATE_META[d.state];
           const Icon = meta.icon;
           const future = date > today;

@@ -1,3 +1,5 @@
+import type { KpiColorThresholds } from './kpiColors';
+
 /**
  * KPI oylik hisoblash mexanizmi (sof funksiyalar, tarmoqsiz).
  * Barcha pul qiymatlari butun so‘mda (UZS). Yaxlitlash faqat yakuniy yig‘indida bajariladi.
@@ -48,10 +50,10 @@ export function assertCount(n: unknown): asserts n is number {
   if (!isValidCount(n)) throw new RangeError('accepted orders must be a non-negative integer');
 }
 
-export function classifyDay(accepted: number, s: KpiSettings = DEFAULT_SETTINGS): DayStatus {
+export function classifyDay(accepted: number, s: KpiSettings = DEFAULT_SETTINGS, colors?: KpiColorThresholds): DayStatus {
   assertCount(accepted);
-  if (accepted >= s.dailyTarget) return 'green';
-  if (accepted >= s.minThreshold) return 'yellow';
+  if (accepted >= (colors?.yellowBelow ?? s.dailyTarget)) return 'green';
+  if (accepted >= (colors?.redBelow ?? s.minThreshold)) return 'yellow';
   return 'red';
 }
 
@@ -124,6 +126,7 @@ export function calculateMonth(
   rawEntries: DayEntry[],
   s: KpiSettings = DEFAULT_SETTINGS,
   manualAdjustmentsUzs: number[] = [],
+  colors?: KpiColorThresholds,
 ): MonthResult {
   const entries = dedupeEntries(rawEntries);
   const c = { reported: 0, approved: 0, pending: 0, rejected: 0, green: 0, yellow: 0, red: 0, absences: 0, leaves: 0, daysOff: 0 };
@@ -141,7 +144,7 @@ export function calculateMonth(
       if (e.status === 'approved') {
         c.approved++;
         orders += e.accepted;
-        c[classifyDay(e.accepted, s)]++;
+        c[classifyDay(e.accepted, s, colors)]++;
         const adj = dailyAdjustment(e.accepted, s);
         if (adj < 0) shortfall += adj;
         else bonus += adj;
@@ -174,7 +177,7 @@ export function calculateMonth(
 }
 
 /** Bitta kun uchun kalendar/tafsilot ma’lumoti. */
-export function describeDay(e: DayEntry | undefined, s: KpiSettings) {
+export function describeDay(e: DayEntry | undefined, s: KpiSettings, colors?: KpiColorThresholds) {
   if (!e) return { state: 'none' as const, adjustment: 0 };
   if (e.kind === 'absence') return { state: 'absence' as const, adjustment: absenceTotal(1, s) };
   if (e.kind === 'leave') {
@@ -182,7 +185,7 @@ export function describeDay(e: DayEntry | undefined, s: KpiSettings) {
   }
   if (e.kind === 'day_off') return { state: 'day_off' as const, adjustment: 0 };
   if (e.status === 'approved') {
-    return { state: classifyDay(e.accepted, s), adjustment: dailyAdjustment(e.accepted, s), accepted: e.accepted };
+    return { state: classifyDay(e.accepted, s, colors), adjustment: dailyAdjustment(e.accepted, s), accepted: e.accepted };
   }
   return { state: e.status, adjustment: 0, accepted: e.accepted };
 }

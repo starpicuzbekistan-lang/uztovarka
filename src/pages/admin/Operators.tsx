@@ -7,16 +7,17 @@ import { Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Fie
 import { humanError, ROLE_UZ, validateEmail } from '@/lib/uz';
 import { formatDateUz, formatDateTimeUz } from '@/lib/dates';
 import type { Profile } from '@/lib/types';
+import ManagerAssignmentsAdmin from './ManagerAssignmentsAdmin';
 
 type PresenceRecord = { user_id: string; last_login_at: string | null; last_seen_at: string | null; online: boolean };
 
 const isOnline = (p: PresenceRecord | undefined, now: number) => !!p && p.online && !!p.last_seen_at && now - new Date(p.last_seen_at).getTime() < 90_000;
 
 type AdminAction =
-  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator'; position?: string; employee_id?: string }
+  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator' | 'manager'; position?: string; employee_id?: string }
   | { action: 'set_active'; user_id: string; active: boolean }
   | { action: 'confirm_signup_email'; user_id: string }
-  | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' }
+  | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' | 'manager' }
   | { action: 'send_reset'; email: string }
   | { action: 'resend_invite'; email: string };
 
@@ -46,6 +47,7 @@ export default function Operators() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [toggle, setToggle] = useState<Profile | null>(null);
   const [roleTarget, setRoleTarget] = useState<Profile | null>(null);
+  const [newRole, setNewRole] = useState<'admin' | 'operator' | 'manager'>('operator');
   const [q, setQ] = useState('');
 
   const list = useQuery({
@@ -94,6 +96,7 @@ export default function Operators() {
           </Button>
         </div>)}
       </section>
+      <ManagerAssignmentsAdmin />
       <Input placeholder="Ism yoki email bo‘yicha qidirish" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
         <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-neutral-200">
@@ -155,7 +158,7 @@ export default function Operators() {
                     <ShieldCheck className="h-4 w-4"/> Kirishdagi email xatosini tuzatish
                   </Button>
                 )}
-                <Button size="sm" variant="outline" disabled={self} onClick={() => setRoleTarget(p)}>
+                <Button size="sm" variant="outline" disabled={self} onClick={() => { setRoleTarget(p); setNewRole(p.role); }}>
                   <ShieldCheck className="h-4 w-4" /> Rolni o‘zgartirish
                 </Button>
                 <Button size="sm" variant="outline" loading={run.isPending && run.variables?.action === 'send_reset' && (run.variables as any).email === p.email}
@@ -183,20 +186,34 @@ export default function Operators() {
         onClose={() => setToggle(null)}
         onConfirm={() => { if (toggle) run.mutate({ action: 'set_active', user_id: toggle.id, active: !toggle.is_active }, { onSuccess: () => toast('success', 'Holat yangilandi.') }); setToggle(null); }} />
 
-      <ConfirmDialog open={!!roleTarget} danger={roleTarget?.role === 'operator'}
-        title="Rolni o‘zgartirish"
-        message={roleTarget?.role === 'operator'
-          ? `${roleTarget?.full_name} administrator bo‘ladi va barcha boshqaruv ma’lumotlariga (jumladan oyliklarga) kira oladi.`
-          : `${roleTarget?.full_name} oddiy operatorga aylanadi.`}
-        confirmLabel="Tasdiqlash"
-        onClose={() => setRoleTarget(null)}
-        onConfirm={() => { if (roleTarget) run.mutate({ action: 'set_role', user_id: roleTarget.id, role: roleTarget.role === 'admin' ? 'operator' : 'admin' }, { onSuccess: () => toast('success', 'Rol yangilandi.') }); setRoleTarget(null); }} />
+      <Modal open={!!roleTarget} onClose={() => setRoleTarget(null)} title="Xodim rolini o‘zgartirish">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">{roleTarget?.full_name}: yangi rolni tanlang. Administrator barcha ma’lumotlarga kiradi, menejer esa faqat biriktirilgan jamoani boshqaradi.</p>
+          <Field label="Rol">
+            <Select value={newRole} onChange={e => setNewRole(e.target.value as 'admin'|'manager'|'operator')}>
+              <option value="operator">Operator</option>
+              <option value="manager">Menejer</option>
+              <option value="admin">Administrator</option>
+            </Select>
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setRoleTarget(null)}>Bekor qilish</Button>
+            <Button disabled={!roleTarget || newRole === roleTarget.role || run.isPending} onClick={() => {
+              if (!roleTarget) return;
+              run.mutate({action:'set_role',user_id:roleTarget.id,role:newRole},{
+                onSuccess: () => toast('success','Rol yangilandi.')
+              });
+              setRoleTarget(null);
+            }}>Saqlash</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
 function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'operator' });
+  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'operator' | 'manager' });
   const [errs, setErrs] = useState<{ full_name?: string; email?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
 
@@ -229,8 +246,9 @@ function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => 
           <Field label="Xodim ID (ixtiyoriy)"><Input value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })} /></Field>
         </div>
         <Field label="Rol">
-          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'operator' })}>
+          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'operator' | 'manager' })}>
             <option value="operator">Operator</option>
+            <option value="manager">Menejer</option>
             <option value="admin">Administrator</option>
           </Select>
         </Field>

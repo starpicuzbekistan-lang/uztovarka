@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, Clock, Pin } from 'lucide-react';
+import { Bookmark, Clock, Pin, ListTodo } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
@@ -53,6 +53,7 @@ export default function Home() {
 
   return (
     <div>
+      <Link to="/vazifalar" className="mb-4 flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-neutral-800"><span className="flex items-center gap-2"><ListTodo size={19}/> Menejer biriktirgan vazifalar</span><span className="text-lg">›</span></Link>
       <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Chip active={!onlySaved} onClick={() => setOnlySaved(false)}>Barchasi</Chip>
         <Chip active={onlySaved} onClick={() => setOnlySaved(true)}>Saqlanganlar</Chip>

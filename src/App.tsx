@@ -38,6 +38,9 @@ const Payments = lazy(() => import('./pages/admin/Payments'));
 const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminSupportChat = lazy(() => import('./pages/admin/AdminSupportChat'));
+const ManagerHub = lazy(() => import('./pages/manager/ManagerHub'));
+import ManagerErrorBoundary from './components/ManagerErrorBoundary';
+const AssignedTasks = lazy(() => import('./pages/operator/AssignedTasks'));
 
 function SetupRequired() {
   return (
@@ -83,7 +86,18 @@ export default function App() {
             <Route path="skriptlar/:id" element={<ScriptDetail />} />
             <Route path="profil" element={<Profile />} />
             <Route path="profil/badgelar" element={<OperatorBadgesPage />} />
+            <Route path="vazifalar" element={<AssignedTasks />} />
           </Route>
+        </Route>
+
+        {/* Menejerning beshta tabli mobil paneli */}
+        <Route path="manager" element={<RequireAuth area="manager" />}>
+          <Route index element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="jamoa" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="kpi" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="vazifalar" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="profil" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="*" element={<Navigate to="/manager" replace />} />
         </Route>
 
         {/* Administrator paneli */}

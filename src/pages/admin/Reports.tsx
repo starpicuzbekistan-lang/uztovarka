@@ -4,8 +4,8 @@ import { Check, History, MessageSquareWarning, Pencil, X } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { Badge, Button, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, PageHeader, Select, Textarea, useToast } from '@/components/ui';
-import { classifyDay, DEFAULT_SETTINGS, pickSettings, type DayStatus, type ReportStatus } from '@/lib/kpi';
-import { rowToVersion, type SettingsRow } from '@/lib/types';
+import { classifyDay, type DayStatus, type ReportStatus } from '@/lib/kpi';
+import { useKpiColorThresholds } from '@/lib/kpiColors';
 import { ATTENDANCE_UZ, humanError, REPORT_STATUS_UZ } from '@/lib/uz';
 import { formatDateTimeUz, formatDateUz, tashkentToday } from '@/lib/dates';
 
@@ -32,7 +32,7 @@ export default function Reports() {
   const [attOpen, setAttOpen] = useState(false);
 
   const ops = useQuery({ queryKey: ['admin-op-options'], queryFn: async () => (await unwrap(supabase.from('profiles').select('id,full_name').eq('role', 'operator').eq('is_active', true).order('full_name'))) as { id: string; full_name: string }[] });
-  const versions = useQuery({ queryKey: ['kpi-versions'], queryFn: async () => (await unwrap(supabase.from('kpi_setting_versions').select('*'))) as SettingsRow[] });
+  const colors = useKpiColorThresholds();
   const list = useQuery({
     queryKey: ['admin-reports', operator, status, from, to],
     queryFn: async () => {
@@ -49,7 +49,7 @@ export default function Reports() {
       return rows.reduce<Record<string, number>>((a, r) => ({ ...a, [r.status]: (a[r.status] ?? 0) + 1 }), {});
     },
   });
-  const refresh = () => { for (const k of ['admin-reports', 'admin-report-counts', 'admin-overview', 'month']) void qc.invalidateQueries({ queryKey: [k] }); };
+  const refresh = () => { for (const k of ['admin-reports', 'admin-report-counts', 'admin-overview', 'admin-main-balances', 'month']) void qc.invalidateQueries({ queryKey: [k] }); };
 
   const approve = useMutation({
     mutationFn: async (id: string) => { await unwrap(supabase.rpc('review_report', { p_id: id, p_action: 'approve' })); },
@@ -57,7 +57,6 @@ export default function Reports() {
     onError: (e) => toast('error', humanError(e)),
   });
 
-  const settingsFor = (r: Row) => pickSettings((versions.data ?? []).map(rowToVersion), r.report_date, r.operator_id) ?? DEFAULT_SETTINGS;
   const c = counts.data ?? {};
   const rows = useMemo(() => list.data ?? [], [list.data]);
 
@@ -79,6 +78,7 @@ export default function Reports() {
         <Input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="Tugash sanasi" />
       </div>
 
+      {colors.isError && <ErrorState message="KPI ranglari yuklanmadi (016 SQL migratsiyasini tekshiring)." onRetry={() => void colors.refetch()}/>}
       {list.isLoading && <LoadingBlock rows={4} />}
       {list.isError && <ErrorState message={humanError(list.error)} onRetry={() => void list.refetch()} />}
       {list.data && rows.length === 0 && <EmptyState title="Hisobotlar topilmadi." hint="Filtrlarni o‘zgartirib ko‘ring." />}
@@ -91,7 +91,7 @@ export default function Reports() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {rows.map((r) => {
-                const k = classifyDay(r.accepted_orders, settingsFor(r));
+                const k = classifyDay(r.accepted_orders, undefined, colors.data);
                 const own = r.operator_id === profile?.id;
                 return (
                   <tr key={r.id}>

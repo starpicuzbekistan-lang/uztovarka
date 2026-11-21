@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase, unwrap } from '@/lib/supabase';
-import { Badge, Card, ErrorState, LoadingBlock, PageHeader, Select, StatCard } from '@/components/ui';
+import { Badge, Card, ErrorState, LoadingBlock, Notice, PageHeader, Select, StatCard } from '@/components/ui';
 import { MonthNav } from '@/components/MonthNav';
 import { calculateMonth, DEFAULT_SETTINGS, pickSettings } from '@/lib/kpi';
+import { DEFAULT_COLOR_THRESHOLDS, useKpiColorThresholds } from '@/lib/kpiColors';
 import { buildEntries } from '@/lib/entries';
 import { rowToVersion, type Attendance, type PayrollPeriod, type Report, type SettingsRow } from '@/lib/types';
 import { formatDateTimeUz, parseIso, periodForMonth, tashkentToday } from '@/lib/dates';
@@ -18,9 +19,12 @@ export default function Overview() {
   const [ym, setYm] = useState({ y: t.y, m: t.m });
   const [operator, setOperator] = useState('');
   const period = periodForMonth(ym.y, ym.m);
+  const colorQuery = useKpiColorThresholds();
+  // 016 migratsiyasi hali o‘rnatilmagan bo‘lsa ham boshqa dashboard statistikasi ochilsin.
+  const colors = colorQuery.data ?? DEFAULT_COLOR_THRESHOLDS;
 
   const q = useQuery({
-    queryKey: ['admin-overview', ym.y, ym.m, operator],
+    queryKey: ['admin-overview', ym.y, ym.m, operator, colors.redBelow, colors.yellowBelow],
     queryFn: async () => {
       const [profiles, versions, reports, attendance, pps, pendingCount, recent, logs, anns] = await Promise.all([
         unwrap(supabase.from('profiles').select('id,full_name,is_active,role').eq('role', 'operator')) as Promise<{ id: string; full_name: string; is_active: boolean }[]>,
@@ -39,34 +43,62 @@ export default function Overview() {
 
       const vs = versions.map(rowToVersion);
       const active = profiles.filter((p) => p.is_active && (!operator || p.id === operator));
-      let orders = 0, greenDays = 0, workedDays = 0, projected = 0, finalized = 0;
+      let orders = 0, greenDays = 0, workedDays = 0, finalized = 0;
       for (const p of active) {
         const base = pickSettings(vs, period.end, p.id) ?? DEFAULT_SETTINGS;
         const s = { ...base, workingDays: pp?.working_days ?? base.workingDays };
-        const res = calculateMonth(buildEntries(reports.filter((r) => r.operator_id === p.id), attendance.filter((a) => a.operator_id === p.id)), s, adjs.filter((a) => a.operator_id === p.id).map((a) => Number(a.amount_uzs)));
-        orders += res.approvedOrders; greenDays += res.counts.green; workedDays += res.workedDays; projected += res.projectedUzs;
+        const res = calculateMonth(buildEntries(reports.filter((r) => r.operator_id === p.id), attendance.filter((a) => a.operator_id === p.id)), s, adjs.filter((a) => a.operator_id === p.id).map((a) => Number(a.amount_uzs)), colors);
+        orders += res.approvedOrders; greenDays += res.counts.green; workedDays += res.workedDays;
         const c = calcs.find((x) => x.operator_id === p.id);
         if (c?.approved) finalized += Number(c.payable_uzs);
       }
-      return { total: profiles.length, active: profiles.filter((p) => p.is_active).length, pending: pendingCount.count ?? 0, orders, greenDays, workedDays, projected, finalized, recent, logs, anns, operators: profiles.filter((p) => p.is_active) };
+      return { total: profiles.length, active: profiles.filter((p) => p.is_active).length, pending: pendingCount.count ?? 0, orders, greenDays, workedDays, finalized, recent, logs, anns, operators: profiles.filter((p) => p.is_active), allOperatorIds: profiles.map(p => p.id) };
     },
   });
   const d = q.data;
+
+  // Barcha operatorlarning joriy Asosiy balansi. Oylik filtriga bog‘liq emas,
+  // Hold balansi qo‘shilmaydi. Serverdagi get_operator_wallet_v2 asosiy manba.
+  const payable = useQuery({
+    queryKey: ['admin-main-balances', d?.allOperatorIds],
+    enabled: !!d,
+    queryFn: async () => {
+      const ids = d?.allOperatorIds ?? [];
+      let total = 0;
+      // Supabase RPC larni kichik guruh bilan o‘qib, juda ko‘p parallel so‘rov yubormaymiz.
+      for (let i = 0; i < ids.length; i += 8) {
+        const sums = await Promise.all(ids.slice(i, i + 8).map(async (id) => {
+          const rows = (await unwrap(supabase.rpc('get_operator_wallet_v2', { p_operator: id }))) as { main_balance: number }[];
+          if (!rows.length) throw new Error('Operator balansini yuklab bo‘lmadi.');
+          const amount = Number(rows[0].main_balance);
+          if (!Number.isFinite(amount)) throw new Error('Operator balansi noto‘g‘ri.');
+          return amount;
+        }));
+        total += sums.reduce((a, b) => a + b, 0);
+      }
+      return total;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
 
   return (
     <div className="space-y-4">
       <PageHeader title="Boshqaruv paneli" />
       <div className="grid gap-2 sm:grid-cols-2"><MonthNav y={ym.y} m={ym.m} onChange={(y, m) => setYm({ y, m })} />
         <Select value={operator} onChange={(e) => setOperator(e.target.value)} aria-label="Operator"><option value="">Barcha operatorlar</option>{(d?.operators ?? []).map((o) => <option key={o.id} value={o.id}>{o.full_name}</option>)}</Select></div>
+      {colorQuery.isError && <Notice tone="warn">Kun ranglari sozlamasi yuklanmadi. Supabase SQL Editor'da 016 migratsiyasini ishga tushiring. Boshqa ma’lumotlar vaqtincha avvalgi 40/50 chegaralari bilan ko‘rsatiladi.</Notice>}
       {q.isLoading && <LoadingBlock rows={4} />}
       {q.isError && <ErrorState message={humanError(q.error)} onRetry={() => void q.refetch()} />}
+      {payable.isError && <Notice tone="warn">Operatorlarning umumiy Asosiy balansini yuklab bo‘lmadi. Supabase wallet funksiyalarini (012, 013, 015 SQL) tekshiring.</Notice>}
       {d && (<>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Jami operatorlar" value={d.total} hint={`${d.active} tasi faol`} />
           <Link to="/admin/hisobotlar"><StatCard label="Tasdiqlash kutilmoqda" value={d.pending} tone={d.pending ? 'yellow' : undefined} hint="Barcha sanalar bo‘yicha" /></Link>
           <StatCard label="Oylik tasdiqlangan qabul" value={formatNumber(d.orders)} />
           <StatCard label="Norma bajarilishi" value={d.workedDays ? `${formatAvg((d.greenDays / d.workedDays) * 100)}%` : '—'} hint="Yashil kunlar / ishlangan kunlar" />
-          <StatCard label="Taxminiy oylik jamg‘armasi" value={formatUzs(d.projected)} hint="Yakuniy emas" />
+          <StatCard label="Umumiy to‘lanishi kerak bo‘lgan pul" value={payable.isLoading ? '…' : payable.isError ? '—' : formatUzs(payable.data ?? 0)} hint="Barcha operatorlarning Asosiy balansi · Hold kirmaydi" />
           <StatCard label="Yakunlangan oyliklar" value={formatUzs(d.finalized)} hint="Tasdiqlangan summalar" />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">

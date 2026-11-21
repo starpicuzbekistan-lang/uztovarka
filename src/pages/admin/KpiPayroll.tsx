@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CircleCheck, Clock3, ShieldCheck } from 'lucide-react';
+import { useKpiColorThresholds } from '@/lib/kpiColors';
 import WalletAdmin from './WalletAdmin';
 import AbsencePolicyAdmin from './AbsencePolicyAdmin';
 import AcceptancePaymentAdmin from './AcceptancePaymentAdmin';
@@ -20,18 +21,22 @@ export default function KpiPayroll(){
 }
 
 function KpiRules(){
+ const colors = useKpiColorThresholds();
+ const red = colors.data?.redBelow;
+ const yellow = colors.data?.yellowBelow;
  return <div className="space-y-4"><AcceptancePaymentAdmin/><AbsencePolicyAdmin/><Card className="space-y-4 p-4 sm:p-5">
   <h2 className="font-bold">Kunlik KPI mezonlari</h2>
-  <p className="text-sm text-neutral-600">Yangi qoidalar 012 SQL migratsiyasi orqali amaldagi umumiy va shaxsiy sozlamalarga yoziladi. Bu mezonlar faqat kunlik natija ranglari, reyting va badge'larni belgilaydi. Balansga jarima yoki bonus avtomatik qo‘shmaydi.</p>
+  <p className="text-sm text-neutral-600">Bu ranglarni Admin → Sozlamalar orqali belgilash mumkin. Rang mezonlari operator kalendari, reyting va badgelarga ta’sir qiladi, lekin Asosiy/Hold balansga, qabul puliga yoki jarimaga avtomatik ta’sir qilmaydi.</p>
+  {colors.isError && <p className="text-sm text-red-700">Ranglar yuklanmadi. Supabase’da 016 migratsiyasini o‘rnating.</p>}
   <div className="grid gap-2">
    <div className="flex items-center gap-3 rounded-xl bg-green-50 p-3 text-green-800">
-    <CircleCheck size={20}/><div className="flex-1"><b>Yashil kun</b><p className="text-sm">50 ta va undan ko‘p tasdiqlangan qabul</p></div><b>≥ 50</b>
+    <CircleCheck size={20}/><div className="flex-1"><b>Yashil kun</b><p className="text-sm">{yellow === undefined ? 'Limit yuklanmoqda' : `${yellow} ta va undan ko‘p tasdiqlangan qabul`}</p></div><b>{yellow === undefined ? '—' : `≥ ${yellow}`}</b>
    </div>
    <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3 text-amber-800">
-    <Clock3 size={20}/><div className="flex-1"><b>Sariq kun</b><p className="text-sm">40–49 ta tasdiqlangan qabul</p></div><b>40–49</b>
+    <Clock3 size={20}/><div className="flex-1"><b>Sariq kun</b><p className="text-sm">{red === undefined || yellow === undefined ? 'Limit yuklanmoqda' : `${red}–${yellow - 1} ta tasdiqlangan qabul`}</p></div><b>{red === undefined || yellow === undefined ? '—' : `${red}–${yellow - 1}`}</b>
    </div>
    <div className="flex items-center gap-3 rounded-xl bg-red-50 p-3 text-red-800">
-    <ShieldCheck size={20}/><div className="flex-1"><b>Qizil kun</b><p className="text-sm">40 tadan kam qabul</p></div><b>0–39</b>
+    <ShieldCheck size={20}/><div className="flex-1"><b>Qizil kun</b><p className="text-sm">{red === undefined ? 'Limit yuklanmoqda' : `${red} tadan kam qabul`}</p></div><b>{red === undefined ? '—' : `0–${red - 1}`}</b>
    </div>
   </div>
   <p className="text-xs text-neutral-500">Eski 2 mln so‘mlik baza hamda KPI jarima/bonuslari yangi oylik balansini hisoblashda ishlatilmaydi. Tarixiy yozuvlar ma’lumotlar bazasida saqlanadi.</p>

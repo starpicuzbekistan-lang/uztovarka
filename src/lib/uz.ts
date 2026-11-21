@@ -28,7 +28,7 @@ export const SCRIPT_CATEGORY_UZ = {
 } as const;
 export const ABSENCE_RULE_UZ = { prorata: 'Oylikni kunlarga taqsimlash (proporsional)', fixed: 'Belgilangan summa', none: 'Kamaytirilmaydi' } as const;
 export const LEAVE_POLICY_UZ = { neutral: 'Oylikka ta’sir qilmaydi', same_as_absence: 'Kelmagan kun bilan bir xil' } as const;
-export const ROLE_UZ = { admin: 'Administrator', operator: 'Operator' } as const;
+export const ROLE_UZ = { admin: 'Administrator', operator: 'Operator', manager: 'Menejer' } as const;
 
 export const NOT_PROVIDED = 'Administrator tomonidan kiritilmagan';
 
