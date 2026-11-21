@@ -76,6 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNeedsPassword(true);
       }
       if (event === 'SIGNED_OUT') { setProfile(null); return; }
+      // Different users can sign in without a reload; never reuse the previous user's role.
+      if (event === 'SIGNED_IN') setProfile(null);
       // Supabase talabi: callback ichida to‘g‘ridan-to‘g‘ri await qilmaslik
       setTimeout(() => { void loadProfile(s); }, 0);
     });

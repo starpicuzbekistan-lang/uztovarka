@@ -142,12 +142,14 @@ export function ErrorState({ message, onRetry }: { message?: string; onRetry?: (
   );
 }
 
-export function AccessDenied() {
+export function AccessDenied({ onSwitchAccount }: { onSwitchAccount?: () => void }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface px-6 text-center">
       <ShieldAlert className="h-12 w-12 text-neutral-400" />
       <h1 className="text-xl font-bold">Ushbu bo‘limga kirish uchun ruxsatingiz yo‘q.</h1>
-      <Link to="/" className="font-semibold underline decoration-brand decoration-2 underline-offset-4">Bosh sahifaga qaytish</Link>
+      <p className="max-w-sm text-sm text-neutral-600">Bu sahifa boshqa rol uchun. Administrator paneliga kirish uchun administrator hisobi bilan kiring.</p>
+      {onSwitchAccount && <Button onClick={onSwitchAccount}>Boshqa hisob bilan kirish</Button>}
+      <Link to="/" className="font-semibold underline decoration-brand decoration-2 underline-offset-4">O‘z panelimga qaytish</Link>
     </div>
   );
 }
