@@ -21,7 +21,7 @@ function corsHeaders(req: Request): Record<string, string> {
       trusted = validProtocol && (
         incoming.origin === siteOrigin ||
         incoming.hostname === 'silver-entremet-54da02.netlify.app' ||
-        /^deploy-preview-\\d+--silver-entremet-54da02\\.netlify\\.app$/.test(incoming.hostname) ||
+        /^deploy-preview-\d+--silver-entremet-54da02\.netlify\.app$/.test(incoming.hostname) ||
         (incoming.hostname === 'localhost' && ['5173', '4173'].includes(incoming.port))
       );
     } catch { trusted = false; }
