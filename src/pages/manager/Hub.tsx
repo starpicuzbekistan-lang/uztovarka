@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock, Crown, Fl
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { formatDateUz, periodForMonth, shiftMonth, tashkentToday } from '@/lib/dates';
-import { humanError } from '@/lib/uz';
+import { humanError, validatePassword } from '@/lib/uz';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, LoadingBlock, Select, Textarea, useToast } from '@/components/ui';
 
 type Operator = {id:string;full_name:string;avatar_url:string|null;position:string;employee_id:string|null;is_active:boolean};
@@ -240,24 +240,74 @@ export function ManagerTasks(){
  </div>;
 }
 export function ManagerProfile(){
- const {profile,refreshProfile,signOut}=useAuth(),[name,setName]=useState(profile?.full_name??''),[phone,setPhone]=useState(profile?.phone??'');
+ const {profile,refreshProfile,signOut}=useAuth();
+ const [name,setName]=useState(profile?.full_name??'');
+ const [phone,setPhone]=useState(profile?.phone??'');
+ const [notifyReports,setNotifyReports]=useState(profile?.notify_reports??true);
+ const [notifyAnnouncements,setNotifyAnnouncements]=useState(profile?.notify_announcements??true);
+ const [oldPassword,setOldPassword]=useState(''),[password,setPassword]=useState(''),[again,setAgain]=useState('');
  const toast=useToast(),d=useManager(monthNow()),tasks=useTasks();
- const save=useMutation({mutationFn:async()=>{if(!profile||!name.trim())throw new Error('Ism kiriting.');await unwrap(supabase.from('profiles').update({full_name:name.trim(),phone:phone.trim()||null}).eq('id',profile.id).select());},
- onSuccess:()=>{void refreshProfile();toast('success','Profil saqlandi.');},onError:e=>toast('error',humanError(e))});
+ const save=useMutation({
+   mutationFn:async()=>{
+     if(!profile||!name.trim())throw new Error('Ism kiriting.');
+     await unwrap(supabase.from('profiles').update({
+       full_name:name.trim(),phone:phone.trim()||null,
+       notify_reports:notifyReports,notify_announcements:notifyAnnouncements,
+     }).eq('id',profile.id).select());
+   },
+   onSuccess:()=>{void refreshProfile();toast('success','Profil sozlamalari saqlandi.');},
+   onError:e=>toast('error',humanError(e)),
+ });
+ const changePassword=useMutation({
+   mutationFn:async()=>{
+     if(!profile?.email||!oldPassword)throw Error('Joriy parolni kiriting.');
+     if(password!==again)throw Error('Yangi parollar bir xil emas.');
+     const invalid=validatePassword(password);
+     if(invalid)throw Error(invalid);
+     const {error:loginError}=await supabase.auth.signInWithPassword({email:profile.email,password:oldPassword});
+     if(loginError)throw Error('Joriy parol noto‘g‘ri.');
+     const {error}=await supabase.auth.updateUser({password});
+     if(error)throw error;
+   },
+   onSuccess:()=>{setOldPassword('');setPassword('');setAgain('');toast('success','Parol yangilandi.');},
+   onError:e=>toast('error',e instanceof Error?e.message:humanError(e)),
+ });
  const teamCodes=(d.teams.data??[]).map(t=>'Team '+t.team_code.toUpperCase());
+ const completed=(tasks.data??[]).filter(t=>t.status==='completed').length;
+ const totalTasks=tasks.data?.length??0;
  return <div className="space-y-4">
-   <Heading title="Profil" description="Menejer ma’lumotlari va sozlamalari"/>
+   <Heading title="Profil" description="Menejer kabineti va hisob sozlamalari"/>
    <div className={card+' flex items-center gap-4'}>
      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-100 text-2xl font-extrabold text-yellow-800">{profile?.full_name.slice(0,1)}</div>
      <div><h2 className="text-xl font-extrabold">{profile?.full_name}</h2><p className="text-sm text-neutral-500">{profile?.position||'Menejer'}</p><div className="mt-1"><Badge tone="yellow"><ShieldCheck size={13}/> Menejer</Badge></div></div>
    </div>
-   <div className="grid grid-cols-2 gap-3"><Stat label="Operatorlar" value={d.operators.data?.length??'—'}/><Stat label="Bajarilgan vazifalar" value={(tasks.data??[]).filter(t=>t.status==='completed').length}/></div>
-   <section className={card}><h2 className="mb-2 font-bold">Mening jamoalarim</h2><p className="text-sm text-neutral-600">{teamCodes.length?teamCodes.join(', '):'Admin hali jamoa biriktirmagan.'}</p><p className="mt-2 text-xs text-neutral-500">Xodim ID: {profile?.employee_id??'—'}</p></section>
+   <div className="grid grid-cols-2 gap-3"><Stat label="Operatorlar" value={d.operators.data?.length??'—'}/><Stat label="Bajarilgan vazifalar" value={completed} hint={totalTasks?Math.round(completed/totalTasks*100)+'% bajarilgan':'Hozircha vazifa yo‘q'}/></div>
+   <section className={card}>
+     <h2 className="mb-2 font-bold">Mening jamoalarim</h2>
+     <p className="text-sm text-neutral-600">{teamCodes.length?teamCodes.join(', '):'Admin hali jamoa biriktirmagan.'}</p>
+     <p className="mt-2 text-xs text-neutral-500">Xodim ID: {profile?.employee_id??'—'} · {profile?.email}</p>
+   </section>
    <form onSubmit={e=>{e.preventDefault();save.mutate();}} className={card+' space-y-3'}>
-     <h2 className="font-bold">Shaxsiy ma’lumotlar</h2><Field label="Ism-familiya"><Input value={name} onChange={e=>setName(e.target.value)}/></Field>
+     <h2 className="font-bold">Shaxsiy ma’lumotlar</h2>
+     <Field label="Ism-familiya"><Input value={name} onChange={e=>setName(e.target.value)}/></Field>
      <Field label="Telefon"><Input type="tel" value={phone} onChange={e=>setPhone(e.target.value)}/></Field>
+     <h3 className="font-semibold">Bildirishnomalar</h3>
+     <label className="flex items-center justify-between gap-3 text-sm"><span>Hisobotlar haqida xabarlar</span><input type="checkbox" className="h-5 w-5 accent-yellow-400" checked={notifyReports} onChange={e=>setNotifyReports(e.target.checked)}/></label>
+     <label className="flex items-center justify-between gap-3 text-sm"><span>Admin e’lonlari</span><input type="checkbox" className="h-5 w-5 accent-yellow-400" checked={notifyAnnouncements} onChange={e=>setNotifyAnnouncements(e.target.checked)}/></label>
      <Button type="submit" loading={save.isPending}>Saqlash</Button>
    </form>
+   <form onSubmit={e=>{e.preventDefault();changePassword.mutate();}} className={card+' space-y-3'}>
+     <h2 className="font-bold">Parolni yangilash</h2>
+     <Field label="Joriy parol"><Input type="password" autoComplete="current-password" required value={oldPassword} onChange={e=>setOldPassword(e.target.value)}/></Field>
+     <Field label="Yangi parol"><Input type="password" autoComplete="new-password" required value={password} onChange={e=>setPassword(e.target.value)}/></Field>
+     <Field label="Parolni takrorlang"><Input type="password" autoComplete="new-password" required value={again} onChange={e=>setAgain(e.target.value)}/></Field>
+     <Button type="submit" variant="outline" loading={changePassword.isPending}>Parolni yangilash</Button>
+   </form>
+   <section className={card}>
+     <h2 className="mb-3 font-bold">So‘nggi faoliyat</h2>
+     {(tasks.data??[]).length===0?<p className="text-sm text-neutral-500">Hozircha vazifalar tarixi mavjud emas.</p>:
+       (tasks.data??[]).slice(0,5).map(t=><div key={t.id} className="flex items-center justify-between gap-3 border-t border-neutral-100 py-3"><p className="truncate text-sm font-medium">{t.title}</p><Badge tone={t.status==='completed'?'green':'neutral'}>{t.status==='completed'?'Bajarilgan':'Jarayonda'}</Badge></div>)}
+   </section>
    <button onClick={()=>void signOut()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white font-bold text-rose-700"><UserRound size={18}/> Hisobdan chiqish</button>
  </div>;
 }
