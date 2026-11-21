@@ -20,6 +20,7 @@ export default function PenaltyAcknowledgement() {
   const qc = useQueryClient();
   const toast = useToast();
   const [accepted, setAccepted] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const policy = useAbsencePolicy();
   const rule = policy.data?.[0];
 
@@ -34,18 +35,16 @@ export default function PenaltyAcknowledgement() {
   const acknowledge = useMutation({
     mutationFn: async () => {
       if (!profile || !rule || !accepted) throw new Error('Ogohlantirishni tasdiqlang.');
-      await unwrap(supabase.from('operator_penalty_acknowledgements').insert({
-        operator_id: profile.id, amount_uzs: Number(rule.amount_uzs), effective_from: rule.effective_from,
-      }));
+      await unwrap(supabase.rpc('acknowledge_operator_penalty'));
     },
     onSuccess: () => {
+      setSubmissionError(null);
       void qc.invalidateQueries({ queryKey: ['operator-penalty-acknowledgement', profile?.id] });
       toast('success', 'Ogohlantirish bilan tanishganingiz qayd etildi.');
     },
     onError: (err) => {
-      // A previous session may have acknowledged it already.
-      void qc.invalidateQueries({ queryKey: ['operator-penalty-acknowledgement', profile?.id] });
-      toast('error', humanError(err));
+      // Keep the error inside the open dialog, not behind its backdrop.
+      setSubmissionError(humanError(err));
     },
   });
 
@@ -77,6 +76,11 @@ export default function PenaltyAcknowledgement() {
             checked={accepted} onChange={e => setAccepted(e.target.checked)} />
           <span>Tanishib chiqdim va jarima shartlarini tushundim.</span>
         </label>
+        {submissionError && (
+          <div role="alert" className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">
+            {submissionError}
+          </div>
+        )}
         <Button className="mt-4 w-full justify-center" disabled={!accepted || acknowledge.isPending}
           loading={acknowledge.isPending} onClick={() => acknowledge.mutate()}>
           <CheckCircle2 size={18}/> Tasdiqlash
