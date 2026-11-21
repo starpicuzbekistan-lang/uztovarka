@@ -56,6 +56,11 @@ create policy reports_manager_team_read on public.daily_reports for select to au
 create policy attendance_manager_team_read on public.attendance_records for select to authenticated
   using(public.manager_has_operator(operator_id,record_date));
 
+-- Show manager only the team assignment history of the operators they supervise.
+create policy operator_assignments_manager_read on public.operator_team_assignments
+  for select to authenticated
+  using(public.manager_has_operator(operator_id,effective_month));
+
 -- Manually adjusted colors are a separate VISUAL classification, never a salary override.
 -- The operator's actual approved counts and payroll calculations are untouched.
 create table public.operator_day_colors (
