@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { useChatUnread } from '@/lib/supportChat';
+import PenaltyAcknowledgement from '@/components/PenaltyAcknowledgement';
 
 // Aynan beshta asosiy bo‘lim.
 const NAV: { to: string; label: string; icon: LucideIcon; end?: boolean; match: RegExp }[] = [
@@ -79,6 +80,7 @@ export function OperatorLayout() {
       <main className="mx-auto max-w-3xl px-4 pb-28 pt-4 md:pb-10">
         <Outlet />
       </main>
+      <PenaltyAcknowledgement />
 
       {/* Mobil pastki navigatsiya */}
       <nav aria-label="Asosiy menyu" className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white md:hidden safe-bottom">

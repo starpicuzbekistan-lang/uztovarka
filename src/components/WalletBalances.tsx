@@ -24,9 +24,9 @@ export function WalletOverview({ wallet, compact = false }: { wallet?: WalletSum
             <span>Asosiy balans</span>
           </div>
           <div className="mt-3 break-words text-[clamp(1.25rem,4vw,1.875rem)] font-extrabold leading-tight tracking-tight tabular-nums text-ink">
-            {displayed(wallet?.main_balance)}
+            <span className={wallet && Number(wallet.main_balance) < 0 ? 'text-red-700' : undefined}>{displayed(wallet?.main_balance)}</span>
           </div>
-          <p className="mt-1 text-[11px] text-amber-950/75">so‘m · To‘lovga tayyor</p>
+          <p className="mt-1 text-[11px] text-amber-950/75">{wallet && Number(wallet.main_balance) < 0 ? 'so‘m · Jarima sababli manfiy balans' : 'so‘m · To‘lovga tayyor'}</p>
         </div>
         <div className="min-w-0 rounded-xl border border-neutral-200 bg-neutral-50 p-3 sm:p-4">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700">
