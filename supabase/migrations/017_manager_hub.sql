@@ -185,6 +185,8 @@ begin
  insert into public.manager_tasks(manager_id,operator_id,title,description,category,priority,due_date)
  values(auth.uid(),p_operator,btrim(p_title),left(coalesce(p_description,''),4000),p_category,p_priority,p_due)
  returning id into v_id;
+ insert into public.notifications(user_id,kind,title,message,link)
+ values(p_operator,'system','Yangi vazifa',left(btrim(p_title),160),'/vazifalar');
  return v_id;
 end $$;
 
@@ -195,7 +197,10 @@ begin
  where id=p_task and operator_id=auth.uid() and status in ('todo','in_progress')
    and public.is_active_user();
  if not found then raise exception 'Vazifa topilmadi yoki allaqachon topshirilgan' using errcode='42501'; end if;
-end $$;
+ insert into public.notifications(user_id,kind,title,message,link)
+ select manager_id,'system','Vazifa tekshiruvda',title,'/manager/vazifalar'
+ from public.manager_tasks where id=p_task;
+end $;
 
 create or replace function public.manager_review_task(p_task uuid,p_approve boolean,p_feedback text default null)
 returns void language plpgsql security definer set search_path=public as $$
@@ -213,7 +218,11 @@ begin
    feedback=nullif(btrim(coalesce(p_feedback,'')),''),
    completed_at=case when p_approve then now() else null end
  where id=p_task;
-end $$;
+ insert into public.notifications(user_id,kind,title,message,link)
+ values(v_task.operator_id,'system',
+   case when p_approve then 'Vazifa tasdiqlandi' else 'Vazifa qaytarildi' end,
+   left(v_task.title,160),'/vazifalar');
+end $;
 revoke all on function public.manager_create_task(uuid,text,text,text,text,date),
  public.operator_submit_task(uuid),public.manager_review_task(uuid,boolean,text) from public,anon;
 grant execute on function public.manager_create_task(uuid,text,text,text,text,date),
