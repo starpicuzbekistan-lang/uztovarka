@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
       case 'invite': {
         const email = String(body.email ?? '').trim().toLowerCase();
         const fullName = String(body.full_name ?? '').trim();
-        const role = body.role === 'admin' ? 'admin' : 'operator';
+        if (!['admin','manager','operator'].includes(body.role)) return json({ error: 'Rol noto‘g‘ri' }, 400);
+        const role = body.role as 'admin'|'manager'|'operator';
         if (!EMAIL_RE.test(email)) return json({ error: 'Email manzili noto‘g‘ri' }, 400);
         if (!fullName) return json({ error: 'Ism-familiya kiritilishi shart' }, 400);
 
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
         // Profil trigger orqali yaratilgan; rol va qo‘shimcha maydonlarni xavfsiz tarzda server o‘rnatadi.
         await admin.from('profiles').update({
           role, full_name: fullName,
-          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : 'Operator'),
+          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Menejer' : 'Operator'),
           employee_id: body.employee_id ? String(body.employee_id) : null,
         }).eq('id', data.user.id);
         await audit('user_invited', data.user.id, { email, role });
@@ -118,11 +119,17 @@ Deno.serve(async (req) => {
 
       case 'set_role': {
         const id = String(body.user_id ?? '');
-        const role = body.role === 'admin' ? 'admin' : 'operator';
-        if (id === userData.user.id && role !== 'admin') return json({ error: 'O‘z rolingizni pasaytira olmaysiz' }, 400);
-        const { data: before } = await admin.from('profiles').select('role').eq('id', id).single();
-        await admin.from('profiles').update({ role }).eq('id', id);
-        await audit('role_changed', id, { from: before?.role, to: role });
+        const role = String(body.role ?? '');
+        if (!['admin', 'manager', 'operator'].includes(role))
+          return json({ error: 'Noma’lum rol' }, 400);
+        if (id === userData.user.id && role !== 'admin')
+          return json({ error: 'O‘z rolingizni pasaytira olmaysiz' }, 400);
+        const { data: before, error: lookupErr } = await admin.from('profiles')
+          .select('role').eq('id', id).single();
+        if (lookupErr || !before) return json({ error: 'Xodim topilmadi' }, 404);
+        const { error: roleErr } = await admin.from('profiles').update({ role }).eq('id', id);
+        if (roleErr) return json({ error: 'Rolni o‘zgartirib bo‘lmadi: ' + roleErr.message }, 400);
+        await audit('role_changed', id, { from: before.role, to: role });
         return json({ ok: true });
       }
 
