@@ -20,6 +20,14 @@ export default function ManagersAdmin(){
  const latest=new Map<string,{team_code:string;effective_month:string}>();
  for(const a of operators.data??[]){if(a.effective_month<=activeMonth&&!latest.has(a.operator_id))latest.set(a.operator_id,a);}
  const teamSize=(code:string)=>[...latest.values()].filter(v=>v.team_code===code).length;
+ const dbError=managers.error??assigns.error;
+ const code=(dbError as {code?:string;message?:string}|null)?.code;
+ const details=(dbError as {code?:string;message?:string}|null)?.message??'';
+ const migrationMissing=['42P01','42883','42703','PGRST205'].includes(code??'')||/manager_team_assignments|manager role|schema cache/i.test(details);
+ const errorMessage=migrationMissing
+   ? "Menejerlar moduli uchun Supabase bazasi hali tayyor emas. SQL Editor’da 016_manager_role.sql va 017_manager_hub.sql migratsiyalarini ketma-ket bajaring, keyin qayta urinib ko‘ring."
+   : humanError(dbError);
+
  return <div className="space-y-4">
    <PageHeader title="Menejerlar" subtitle="Menejerlarni Operatorlar sahifasida taklif qiling va shu yerda Alpha/Beta jamoalarini biriktiring."/>
    <Card className="space-y-2 p-4">
@@ -28,8 +36,8 @@ export default function ManagersAdmin(){
      <p className="text-xs text-neutral-500">Menejer yaratish: Admin → Operatorlar → Yangi xodim → Menejer. Yoki mavjud xodimning rolini Menejerga o‘zgartiring.</p>
    </Card>
    {(managers.isLoading||assigns.isLoading)&&<LoadingBlock rows={3}/>}
-   {(managers.error||assigns.error)&&<ErrorState message={humanError(managers.error??assigns.error)} onRetry={()=>{void managers.refetch();void assigns.refetch();}}/>}
-   {!managers.isLoading&&!managers.data?.length&&<EmptyState title="Menejerlar topilmadi" hint="Operatorlar bo‘limida yangi menejer taklif qiling."/>}
+   {dbError&&<ErrorState message={errorMessage} onRetry={()=>{void managers.refetch();void assigns.refetch();}}/>}
+   {managers.isSuccess&&assigns.isSuccess&&!managers.data?.length&&<EmptyState title="Menejerlar topilmadi" hint="Operatorlar bo‘limida yangi menejer taklif qiling."/>}
    {(managers.data??[]).map(m=><Card key={m.id} className="space-y-3 p-4">
      <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Users size={20}/></div>
        <div className="min-w-0 flex-1"><p className="truncate font-bold">{m.full_name}</p><p className="truncate text-xs text-neutral-500">{m.email}</p></div>
