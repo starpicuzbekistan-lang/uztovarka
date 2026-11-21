@@ -221,15 +221,20 @@ grant execute on function public.manager_create_task(uuid,text,text,text,text,da
 
 -- Record who set a visual classification. Do not overwrite previous audit events.
 create or replace function public.audit_manager_day_color()
-returns trigger language plpgsql security definer set search_path=public as $$
+returns trigger language plpgsql security definer set search_path=public as $
 begin
+ if tg_op='DELETE' then
+   insert into public.audit_logs(actor_id,action,entity,entity_id,before_data,after_data)
+   values(auth.uid(),'day_color_reset','operator_day_colors',
+     old.operator_id::text||':'||old.report_date::text,to_jsonb(old),null);
+   return old;
+ end if;
  insert into public.audit_logs(actor_id,action,entity,entity_id,before_data,after_data)
- values(auth.uid(),case when tg_op='DELETE' then 'day_color_reset' else 'day_color_set' end,
-   'operator_day_colors',coalesce(new.operator_id,old.operator_id)::text||':'||coalesce(new.report_date,old.report_date)::text,
-   case when tg_op<>'INSERT' then to_jsonb(old) else null end,
-   case when tg_op<>'DELETE' then to_jsonb(new) else null end);
- return coalesce(new,old);
-end $$;
+ values(auth.uid(),'day_color_set','operator_day_colors',
+   new.operator_id::text||':'||new.report_date::text,
+   case when tg_op='UPDATE' then to_jsonb(old) else null end,to_jsonb(new));
+ return new;
+end $;
 create trigger audit_manager_day_color after insert or update or delete on public.operator_day_colors
   for each row execute function public.audit_manager_day_color();
 
