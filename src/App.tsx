@@ -100,6 +100,7 @@ export default function App() {
             <Route path="kpi" element={<ManagerKpi />} />
             <Route path="vazifalar" element={<ManagerTasks />} />
             <Route path="profil" element={<ManagerProfile />} />
+            <Route path="bildirishnomalar" element={<Notifications />} />
           </Route>
         </Route>
 
