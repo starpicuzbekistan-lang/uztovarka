@@ -4,8 +4,9 @@ import { Check, History, MessageSquareWarning, Pencil, X } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
 import { Badge, Button, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, PageHeader, Select, Textarea, useToast } from '@/components/ui';
-import { classifyDay, DEFAULT_SETTINGS, pickSettings, type DayStatus, type ReportStatus } from '@/lib/kpi';
-import { rowToVersion, type SettingsRow } from '@/lib/types';
+import { type DayStatus, type ReportStatus } from '@/lib/kpi';
+import { classifyColorDay, useDayColorRules } from '@/lib/dayColors';
+
 import { ATTENDANCE_UZ, humanError, REPORT_STATUS_UZ } from '@/lib/uz';
 import { formatDateTimeUz, formatDateUz, tashkentToday } from '@/lib/dates';
 
@@ -32,7 +33,7 @@ export default function Reports() {
   const [attOpen, setAttOpen] = useState(false);
 
   const ops = useQuery({ queryKey: ['admin-op-options'], queryFn: async () => (await unwrap(supabase.from('profiles').select('id,full_name').eq('role', 'operator').eq('is_active', true).order('full_name'))) as { id: string; full_name: string }[] });
-  const versions = useQuery({ queryKey: ['kpi-versions'], queryFn: async () => (await unwrap(supabase.from('kpi_setting_versions').select('*'))) as SettingsRow[] });
+  const colorRules=useDayColorRules();
   const list = useQuery({
     queryKey: ['admin-reports', operator, status, from, to],
     queryFn: async () => {
@@ -57,7 +58,7 @@ export default function Reports() {
     onError: (e) => toast('error', humanError(e)),
   });
 
-  const settingsFor = (r: Row) => pickSettings((versions.data ?? []).map(rowToVersion), r.report_date, r.operator_id) ?? DEFAULT_SETTINGS;
+
   const c = counts.data ?? {};
   const rows = useMemo(() => list.data ?? [], [list.data]);
 
@@ -91,7 +92,7 @@ export default function Reports() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {rows.map((r) => {
-                const k = classifyDay(r.accepted_orders, settingsFor(r));
+                const k = classifyColorDay(r.accepted_orders,r.report_date,colorRules.data);
                 const own = r.operator_id === profile?.id;
                 return (
                   <tr key={r.id}>
