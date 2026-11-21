@@ -7,6 +7,7 @@ import { useWallet, useMissingDays, type WalletMovement } from '@/lib/wallet';
 import { useAcceptanceThreshold, useAcceptanceMonth } from '@/lib/acceptance';
 import { WalletOverview } from '@/components/WalletBalances';
 import { useOperatorMonth } from '@/lib/useMonthData';
+import type { KpiColorThresholds } from '@/lib/kpiColors';
 import { KpiCalendar, STATE_META } from '@/components/KpiCalendar';
 import { MonthNav } from '@/components/MonthNav';
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Field, Input, LoadingBlock, Modal, Notice, PageHeader, StatCard, useToast, EmptyState } from '@/components/ui';
@@ -28,8 +29,8 @@ const SUBMIT_ERR: Record<string, string> = {
 const TONE = { green: 'green', yellow: 'yellow', red: 'red' } as const;
 const KPI_WORD = { green: 'Yashil', yellow: 'Sariq', red: 'Qizil' } as const;
 
-function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, onDone }: {
-  today: string; report: Report | undefined; settings: KpiSettings; acceptanceMin: number | null; attendanceToday?: string; onDone: () => void;
+function TodayCard({ today, report, settings, colors, acceptanceMin, attendanceToday, onDone }: {
+  today: string; report: Report | undefined; settings: KpiSettings; colors: KpiColorThresholds; acceptanceMin: number | null; attendanceToday?: string; onDone: () => void;
 }) {
   const toast = useToast();
   const [value, setValue] = useState('');
@@ -84,7 +85,7 @@ function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, on
           </div>
           {report.status === 'pending' && (
             <p className="text-sm text-neutral-600">
-              <Badge tone={TONE[classifyDay(report.accepted_orders, settings)]}>{KPI_WORD[classifyDay(report.accepted_orders, settings)]} kun</Badge>{' '}
+              <Badge tone={TONE[classifyDay(report.accepted_orders, settings, colors)]}>{KPI_WORD[classifyDay(report.accepted_orders, settings, colors)]} kun</Badge>{' '}
               {acceptanceMessage(report.accepted_orders)}
             </p>
           )}
@@ -102,7 +103,7 @@ function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, on
           </Field>
           {draftOk && (
             <p className="text-sm text-neutral-600">
-              <Badge tone={TONE[classifyDay(parsed, settings)]}>{KPI_WORD[classifyDay(parsed, settings)]} kun</Badge>{' '}
+              <Badge tone={TONE[classifyDay(parsed, settings, colors)]}>{KPI_WORD[classifyDay(parsed, settings, colors)]} kun</Badge>{' '}
               {acceptanceMessage(parsed)}
             </p>
           )}
@@ -160,7 +161,7 @@ export default function Salary() {
  const confirmedSold=Number(confirmed.data?.confirmed_orders??0);
  const heldSold=Math.max(0,Number(sales.data?.sold_orders??0)-confirmedSold);
  const selEntry=sel?calendarEntries.find(e=>e.date===sel):undefined;
- const selInfo=sel?describeDay(selEntry,settings):null;
+ const selInfo=sel?describeDay(selEntry,settings,d.colors):null;
  const selReport=sel?d.reports.find(rep=>rep.report_date===sel):undefined;
  const selectedMonthMovements=(movements.data??[]).filter(m=>m.created_at.slice(0,7)===start.slice(0,7));
  return <div className="space-y-4">
@@ -199,14 +200,14 @@ export default function Salary() {
    <p className="text-xs text-neutral-500">Tanlangan oy statistikasi. Yuqoridagi balanslar barcha oylar bo‘yicha, yangi hamyon boshlangan sanadan hisoblanadi.</p>
   </Card>}
   {isCurrent&&<TodayCard
-   today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings}
+   today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings} colors={d.colors}
    acceptanceMin={thresholdToday.data??null}
    attendanceToday={(()=>{const a=d.attendance.find(x=>x.record_date===today);return a?ATTENDANCE_UZ[a.kind]:undefined;})()}
    onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});void qc.invalidateQueries({queryKey:['operator-missing-days']});void qc.invalidateQueries({queryKey:['acceptance-month']});}}
   />}
   <Card>
    <h2 className="mb-3 text-lg font-bold">KPI kalendari</h2>
-   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel}/>
+   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} colors={d.colors} today={today} selected={sel} onSelect={setSel}/>
   </Card>
   <Card className="space-y-2 p-4">
     <h2 className="text-base font-bold">Topshirilmagan kunlar va jarima</h2>

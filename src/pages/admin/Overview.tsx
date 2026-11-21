@@ -5,6 +5,7 @@ import { supabase, unwrap } from '@/lib/supabase';
 import { Badge, Card, ErrorState, LoadingBlock, PageHeader, Select, StatCard } from '@/components/ui';
 import { MonthNav } from '@/components/MonthNav';
 import { calculateMonth, DEFAULT_SETTINGS, pickSettings } from '@/lib/kpi';
+import { loadColorThresholds } from '@/lib/kpiColors';
 import { buildEntries } from '@/lib/entries';
 import { rowToVersion, type Attendance, type PayrollPeriod, type Report, type SettingsRow } from '@/lib/types';
 import { formatDateTimeUz, parseIso, periodForMonth, tashkentToday } from '@/lib/dates';
@@ -22,7 +23,7 @@ export default function Overview() {
   const q = useQuery({
     queryKey: ['admin-overview', ym.y, ym.m, operator],
     queryFn: async () => {
-      const [profiles, versions, reports, attendance, pps, pendingCount, recent, logs, anns] = await Promise.all([
+      const [profiles, versions, reports, attendance, pps, pendingCount, recent, logs, anns, colors] = await Promise.all([
         unwrap(supabase.from('profiles').select('id,full_name,is_active,role').eq('role', 'operator')) as Promise<{ id: string; full_name: string; is_active: boolean }[]>,
         unwrap(supabase.from('kpi_setting_versions').select('*')) as Promise<SettingsRow[]>,
         unwrap(supabase.from('daily_reports').select('*').gte('report_date', period.start).lte('report_date', period.end).limit(10000)) as Promise<Report[]>,
@@ -32,6 +33,7 @@ export default function Overview() {
         unwrap(supabase.from('daily_reports').select('id,report_date,accepted_orders,status,submitted_at,operator:profiles!daily_reports_operator_id_fkey(full_name)').order('submitted_at', { ascending: false }).limit(6)) as unknown as Promise<Recent[]>,
         unwrap(supabase.from('audit_logs').select('id,action,entity,created_at').order('created_at', { ascending: false }).limit(5)) as Promise<{ id: string; action: string; entity: string; created_at: string }[]>,
         unwrap(supabase.from('announcements').select('id,title,status,published_at,created_at').order('created_at', { ascending: false }).limit(3)) as Promise<{ id: string; title: string; status: string; published_at: string | null; created_at: string }[]>,
+        loadColorThresholds(),
       ]);
       const pp = pps[0] ?? null;
       const calcs = pp ? ((await unwrap(supabase.from('payroll_calculations').select('operator_id,payable_uzs,approved').eq('period_id', pp.id))) as { operator_id: string; payable_uzs: number; approved: boolean }[]) : [];
@@ -43,7 +45,7 @@ export default function Overview() {
       for (const p of active) {
         const base = pickSettings(vs, period.end, p.id) ?? DEFAULT_SETTINGS;
         const s = { ...base, workingDays: pp?.working_days ?? base.workingDays };
-        const res = calculateMonth(buildEntries(reports.filter((r) => r.operator_id === p.id), attendance.filter((a) => a.operator_id === p.id)), s, adjs.filter((a) => a.operator_id === p.id).map((a) => Number(a.amount_uzs)));
+        const res = calculateMonth(buildEntries(reports.filter((r) => r.operator_id === p.id), attendance.filter((a) => a.operator_id === p.id)), s, adjs.filter((a) => a.operator_id === p.id).map((a) => Number(a.amount_uzs)), colors);
         orders += res.approvedOrders; greenDays += res.counts.green; workedDays += res.workedDays; projected += res.projectedUzs;
         const c = calcs.find((x) => x.operator_id === p.id);
         if (c?.approved) finalized += Number(c.payable_uzs);

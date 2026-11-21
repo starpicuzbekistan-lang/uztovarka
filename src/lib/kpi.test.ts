@@ -159,3 +159,25 @@ describe('tarixiy sozlamalar', () => {
   });
   test('kuchga kirmagan versiya yo‘q', () => assert.equal(pickSettings(versions, '2025-12-31'), undefined));
 });
+
+describe('admin belgilagan qizil/sariq/yashil limitlar', () => {
+  const salary: KpiSettings = { ...S, dailyTarget: 60, minThreshold: 50 };
+  const colors = { redBelow: 30, yellowBelow: 50 };
+  const entries: DayEntry[] = [29, 40, 50].map((accepted, i) =>
+    ({ date: `2026-11-0${i+1}`, kind: 'worked', accepted, status: 'approved' as const }));
+  test('29 = qizil, 40 = sariq, 50 = yashil', () => {
+    assert.equal(classifyDay(29, salary, colors), 'red');
+    assert.equal(classifyDay(40, salary, colors), 'yellow');
+    assert.equal(classifyDay(50, salary, colors), 'green');
+    assert.deepEqual(
+      (({ green, yellow, red }) => ({ green, yellow, red }))(calculateMonth(entries, salary, [], colors).counts),
+      { green: 1, yellow: 1, red: 1 }
+    );
+  });
+  test('ranglar oylik formulasini o‘zgartirmaydi', () => {
+    assert.equal(calculateMonth(entries, salary, [], colors).projectedUzs,
+      calculateMonth(entries, salary).projectedUzs);
+    assert.equal(describeDay(entries[1], salary, colors).state, 'yellow');
+    assert.equal(describeDay(entries[1], salary, colors).adjustment, -20_000);
+  });
+});

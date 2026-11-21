@@ -8,13 +8,15 @@ import BundleSettingsCard from './BundleSettings';
 import OperatorRewardsSales from './OperatorRewardsSales';
 import TeamGoalsAdmin from './TeamGoalsAdmin';
 import SpecialBadgesAdmin from './SpecialBadgesAdmin';
+import KpiColorSettingsAdmin from './KpiColorSettingsAdmin';
 
 type Table = 'product_categories' | 'article_categories';
 
 export default function AdminSettings() {
   return (
     <div className="space-y-4">
-      <PageHeader title="Sozlamalar" subtitle="Kategoriyalar va demo ma’lumotlarni boshqarish." />
+      <PageHeader title="Sozlamalar" subtitle="KPI ranglari, kategoriyalar va boshqa sozlamalar." />
+      <KpiColorSettingsAdmin />
       <BundleSettingsCard />
       <OperatorRewardsSales />
       <TeamGoalsAdmin />
@@ -24,7 +26,7 @@ export default function AdminSettings() {
       <DemoCard />
       <Card className="p-4 text-sm text-neutral-600">
         <h2 className="mb-1 font-bold text-ink">KPI mezonlari va balanslar</h2>
-        Kunlik norma: yashil ≥50, sariq 40–49, qizil 0–39. To‘lovlar, sotuv tasdiqlari va bonuslar “KPI va oyliklar” bo‘limidagi “Balanslarni boshqarish” sahifasida yuritiladi.
+        Kun ranglari yuqorida sozlanadi. To‘lovlar, sotuv tasdiqlari va bonuslar “KPI va oyliklar” bo‘limidagi “Balanslarni boshqarish” sahifasida alohida yuritiladi.
       </Card>
     </div>
   );
