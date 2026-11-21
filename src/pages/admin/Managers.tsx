@@ -23,7 +23,7 @@ export default function ManagersAdmin(){
  const dbError=managers.error??assigns.error;
  const code=(dbError as {code?:string;message?:string}|null)?.code;
  const details=(dbError as {code?:string;message?:string}|null)?.message??'';
- const migrationMissing=['42P01','42883','42703','PGRST205'].includes(code??'')||/manager_team_assignments|manager role|schema cache/i.test(details);
+ const migrationMissing=['42P01','42883','42703','22P02','PGRST205'].includes(code??'')||/manager_team_assignments|invalid input value for enum.*manager|manager role|schema cache/i.test(details);
  const errorMessage=migrationMissing
    ? "Menejerlar moduli uchun Supabase bazasi hali tayyor emas. SQL Editor’da 016_manager_role.sql va 017_manager_hub.sql migratsiyalarini ketma-ket bajaring, keyin qayta urinib ko‘ring."
    : humanError(dbError);
