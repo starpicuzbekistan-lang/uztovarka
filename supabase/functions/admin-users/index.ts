@@ -7,18 +7,40 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const cors = {
-  'Access-Control-Allow-Origin': Deno.env.get('SITE_URL') ?? '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+// Browser CORS: the app's primary host and its Netlify Deploy Previews are trusted.
+// An OPTIONS request is not authorization; every privileged POST still validates the user JWT and admin role.
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin');
+  let trusted = false;
+  if (origin) {
+    try {
+      const incoming = new URL(origin);
+      const configured = Deno.env.get('SITE_URL');
+      const siteOrigin = configured ? new URL(configured).origin : '';
+      const validProtocol = incoming.protocol === 'https:' || (incoming.hostname === 'localhost' && incoming.protocol === 'http:');
+      trusted = validProtocol && (
+        incoming.origin === siteOrigin ||
+        incoming.hostname === 'silver-entremet-54da02.netlify.app' ||
+        /^deploy-preview-\\d+--silver-entremet-54da02\\.netlify\\.app$/.test(incoming.hostname) ||
+        (incoming.hostname === 'localhost' && ['5173', '4173'].includes(incoming.port))
+      );
+    } catch { trusted = false; }
+  }
+  return {
+    ...(trusted && origin ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Vary': 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'Usul qo‘llab-quvvatlanmaydi' }, 405);
 
@@ -120,10 +142,16 @@ Deno.serve(async (req) => {
         const id = String(body.user_id ?? '');
         const role = body.role === 'admin' || body.role === 'manager' ? body.role : 'operator';
         if (id === userData.user.id && role !== 'admin') return json({ error: 'O‘z rolingizni pasaytira olmaysiz' }, 400);
-        const { data: before } = await admin.from('profiles').select('role').eq('id', id).single();
-        await admin.from('profiles').update({ role }).eq('id', id);
-        await audit('role_changed', id, { from: before?.role, to: role });
-        return json({ ok: true });
+        const { data: before, error: beforeErr } = await admin.from('profiles').select('role').eq('id', id).maybeSingle();
+        if (beforeErr) return json({ error: 'Xodim ma’lumotini yuklab bo‘lmadi: ' + beforeErr.message }, 500);
+        if (!before) return json({ error: 'Xodim topilmadi' }, 404);
+        if (before.role === role) return json({ ok: true, unchanged: true });
+        const { data: updated, error: roleErr } = await admin.from('profiles')
+          .update({ role }).eq('id', id).select('id,role').maybeSingle();
+        if (roleErr) return json({ error: 'Rolni o‘zgartirib bo‘lmadi: ' + roleErr.message }, 400);
+        if (!updated) return json({ error: 'Rol yangilanmadi. Xodim profilini tekshiring.' }, 409);
+        await audit('role_changed', id, { from: before.role, to: role });
+        return json({ ok: true, role: updated.role });
       }
 
       case 'send_reset': {
