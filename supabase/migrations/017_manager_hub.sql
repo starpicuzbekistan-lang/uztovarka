@@ -338,4 +338,38 @@ begin
              cross join lateral public._gold_month_snapshot(p.id, (current_month - make_interval(months=>gs.month_n))::date) m
              where m.eligible) = 3;
 end $$;
+
+-- Manager role cannot read existing global salary, prize, or unrelated team settings.
+-- Existing operator/admin behavior is preserved.
+DROP POLICY IF EXISTS kpi_versions_read ON public.kpi_setting_versions;
+CREATE POLICY kpi_versions_read ON public.kpi_setting_versions FOR SELECT TO authenticated
+ USING (public.is_admin() OR (public.is_active_user()
+  AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.role='operator')
+  AND (operator_id IS NULL OR operator_id=auth.uid())));
+DROP POLICY IF EXISTS periods_read ON public.payroll_periods;
+CREATE POLICY periods_read ON public.payroll_periods FOR SELECT TO authenticated
+ USING (public.is_admin() OR (public.is_active_user()
+  AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.role='operator')));
+DROP POLICY IF EXISTS monthly_rank_prizes_read ON public.monthly_rank_prizes;
+CREATE POLICY monthly_rank_prizes_read ON public.monthly_rank_prizes FOR SELECT TO authenticated
+ USING (public.is_admin() OR (public.is_active_user()
+  AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.role='operator')));
+DROP POLICY IF EXISTS team_goals_read ON public.team_monthly_goals;
+CREATE POLICY team_goals_read ON public.team_monthly_goals FOR SELECT TO authenticated
+ USING (public.is_admin() OR (public.is_active_user()
+  AND EXISTS (SELECT 1 FROM public.profiles p WHERE p.id=auth.uid() AND p.role='operator')));
+
+-- If admin reassigns an operator, pending work follows the new manager.
+CREATE OR REPLACE FUNCTION public.transfer_open_manager_tasks()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ IF old.manager_id IS DISTINCT FROM new.manager_id THEN
+  UPDATE public.manager_tasks SET manager_id=new.manager_id,updated_at=now()
+  WHERE operator_id=new.operator_id AND status<>'completed';
+ END IF;
+ RETURN new;
+END $$;
+CREATE TRIGGER manager_tasks_transfer AFTER UPDATE OF manager_id ON public.manager_assignments
+FOR EACH ROW EXECUTE FUNCTION public.transfer_open_manager_tasks();
+
 COMMIT;

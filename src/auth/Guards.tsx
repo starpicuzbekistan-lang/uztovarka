@@ -10,7 +10,7 @@ export function RequireAuth({ area }: { area: Area }) {
   if (loading) return <FullPageSpinner />;
   if (!session || !profile) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (needsPassword) return <Navigate to="/parol-o-rnatish" replace />;
-  if (!canAccess({ role: profile.role, isActive: profile.is_active }, area)) return <AccessDenied />;
+  if (!canAccess({ role: profile.role, isActive: profile.is_active }, area)) return area === 'operator' ? <Navigate to={homeFor({role:profile.role,isActive:profile.is_active})} replace /> : <AccessDenied />;
   return <Outlet />;
 }
 
