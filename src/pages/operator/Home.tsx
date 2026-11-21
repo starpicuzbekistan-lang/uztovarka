@@ -53,6 +53,9 @@ export default function Home() {
 
   return (
     <div>
+      <Link to="/vazifalar" className="mb-4 flex min-h-14 items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-950 shadow-sm">
+        <span>📋 Menejer vazifalari</span><span className="text-xs">Vazifalarni ko‘rish →</span>
+      </Link>
       <div className="mb-4 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <Chip active={!onlySaved} onClick={() => setOnlySaved(false)}>Barchasi</Chip>
         <Chip active={onlySaved} onClick={() => setOnlySaved(true)}>Saqlanganlar</Chip>
