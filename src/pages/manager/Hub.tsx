@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Clock, Crown, Flag, ListChecks, Megaphone, Plus, Search, ShieldCheck, TrendingUp, UserRound, Users } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
-import { formatDateUz, periodForMonth, tashkentToday } from '@/lib/dates';
+import { formatDateUz, periodForMonth, shiftMonth, tashkentToday } from '@/lib/dates';
 import { humanError } from '@/lib/uz';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, LoadingBlock, Select, Textarea, useToast } from '@/components/ui';
 
@@ -14,6 +14,7 @@ type Task = {id:string;manager_id:string;operator_id:string;title:string;descrip
 type Team = {manager_id:string;team_code:string};
 type Goal = {team_code:string;month_start:string;target_orders:number};
 type Attendance = {operator_id:string;record_date:string;kind:string};
+type TeamAssignment = {operator_id:string;team_code:string;effective_month:string};
 const STATUS: Record<'green'|'yellow'|'red',string>={green:'Yashil',yellow:'Sariq',red:'Qizil'};
 const COLOR: Record<'green'|'yellow'|'red',string>={green:'bg-emerald-500',yellow:'bg-amber-400',red:'bg-rose-500'};
 const TONE: Record<'green'|'yellow'|'red','green'|'yellow'|'red'>={green:'green',yellow:'yellow',red:'red'};
@@ -26,10 +27,11 @@ function useManager(month:string){
   const operators=useQuery({queryKey:['manager-operators'],queryFn:async()=>await unwrap(supabase.from('profiles').select('id,full_name,avatar_url,position,employee_id,is_active').eq('role','operator').eq('is_active',true).order('full_name')) as Operator[]});
   const reports=useQuery({queryKey:['manager-reports',month],queryFn:async()=>await unwrap(supabase.rpc('get_manager_team_reports',{p_start:start,p_end:end})) as Daily[]});
   const attendance=useQuery({queryKey:['manager-attendance',month],queryFn:async()=>await unwrap(supabase.from('attendance_records').select('operator_id,record_date,kind').gte('record_date',start).lte('record_date',end)) as Attendance[]});
+  const assignments=useQuery({queryKey:['manager-assignments',month],queryFn:async()=>await unwrap(supabase.from('operator_team_assignments').select('operator_id,team_code,effective_month').lte('effective_month',start).order('effective_month',{ascending:false})) as TeamAssignment[]});
   const teams=useQuery({queryKey:['manager-teams'],queryFn:async()=>await unwrap(supabase.from('manager_team_assignments').select('manager_id,team_code')) as Team[]});
   const goals=useQuery({queryKey:['manager-goals',month],queryFn:async()=>await unwrap(supabase.from('team_monthly_goals').select('team_code,month_start,target_orders').eq('month_start',start)) as Goal[]});
   const gold=useQuery({queryKey:['manager-gold'],queryFn:async()=>await unwrap(supabase.rpc('get_gold_verified_operators')) as {operator_id:string}[]});
-  return {operators,reports,attendance,teams,goals,gold,start,end};
+  return {operators,reports,attendance,assignments,teams,goals,gold,start,end};
 }
 function useTasks(){
   return useQuery({queryKey:['manager-tasks'],queryFn:async()=>await unwrap(supabase.from('manager_tasks').select('*').order('due_date',{ascending:true}).limit(500)) as Task[]});
@@ -108,10 +110,27 @@ export function ManagerTeam(){
  const gold=new Set((d.gold.data??[]).map(x=>x.operator_id));
  const score=(id:string)=>reports.filter(r=>r.operator_id===id&&r.report_status==='approved').reduce((a,b)=>a+b.accepted_orders,0);
  const days=(id:string)=>reports.filter(r=>r.operator_id===id&&r.report_status==='approved');
+ const currentTeams=new Map<string,string>();
+ for(const a of d.assignments.data??[]){if(!currentTeams.has(a.operator_id))currentTeams.set(a.operator_id,a.team_code);}
+ const myTeams=(d.teams.data??[]).map(t=>t.team_code);
  return <div className="space-y-4">
    <Heading title="Jamoa" description="Operatorlar, davomati va shaxsiy rivojlanishi"
      action={<input type="month" aria-label="Oy" value={month} onChange={e=>setMonth(e.target.value)} className="w-34 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-xs"/>}/>
    <ErrorOrLoading loading={d.operators.isLoading||d.reports.isLoading} error={d.operators.error??d.reports.error} onRetry={()=>{void d.operators.refetch();void d.reports.refetch();}}/>
+   <div className="grid gap-3 sm:grid-cols-2">
+     {myTeams.map(code=>{
+       const memberIds=new Set((d.operators.data??[]).filter(o=>currentTeams.get(o.id)===code).map(o=>o.id));
+       const teamTotal=reports.filter(r=>memberIds.has(r.operator_id)&&r.report_status==='approved').reduce((a,b)=>a+b.accepted_orders,0);
+       const target=d.goals.data?.find(x=>x.team_code===code)?.target_orders;
+       const percentage=target?Math.min(100,Math.round(teamTotal/target*100)):0;
+       return <div key={code} className={card+' space-y-3'}>
+         <div className="flex items-center justify-between"><h2 className="font-bold">Team {code.toUpperCase()}</h2><Badge tone="yellow">{memberIds.size} operator</Badge></div>
+         <p className="text-3xl font-extrabold tabular-nums">{fmt(teamTotal)} <span className="text-sm font-normal text-neutral-500">ta qabul</span></p>
+         <div className="h-2 overflow-hidden rounded-full bg-neutral-100"><div className="h-full rounded-full bg-[#F5C542]" style={{width:percentage+'%'}}/></div>
+         <p className="text-xs text-neutral-500">{target?('Oylik maqsad: '+fmt(target)+' · '+percentage+'%'):'Oylik maqsad admin tomonidan kiritilmagan'}</p>
+       </div>;
+     })}
+   </div>
    {selected&&<div className={card+' space-y-3'}>
      <button onClick={()=>setParams({})} className="text-xs font-bold text-neutral-500">← Jamoaga qaytish</button>
      <div className="flex items-center gap-3"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100 text-xl font-extrabold">{selected.full_name.slice(0,1)}</div>
@@ -119,6 +138,7 @@ export function ManagerTeam(){
      </div>
      <div className="grid grid-cols-3 gap-2"><Stat label="Qabul" value={fmt(score(selected.id))}/><Stat label="Ish kunlari" value={days(selected.id).length}/><Stat label="O‘rtacha" value={fmt(score(selected.id)/Math.max(1,days(selected.id).length))}/></div>
      <ColorBar rows={days(selected.id)}/>
+     <p className="text-xs text-neutral-500">Davomat: {(d.attendance.data??[]).filter(a=>a.operator_id===selected.id).length} ta alohida yozuv · Gold Verified: {gold.has(selected.id)?'Ha':'Yo‘q'}</p>
      <h3 className="font-bold">Kunlik natijalar</h3>
      {days(selected.id).slice(0,14).map(r=><div key={r.report_date} className="flex items-center justify-between border-b border-neutral-100 py-2 text-sm"><span>{formatDateUz(r.report_date)}</span><span className="flex items-center gap-2">{r.accepted_orders} ta <Badge tone={TONE[r.day_color??'red']}>{STATUS[r.day_color??'red']}</Badge></span></div>)}
      <Link to={'/manager/vazifalar?operator='+selected.id} className="block rounded-xl bg-brand px-4 py-3 text-center text-sm font-bold">Vazifa berish</Link>
@@ -143,6 +163,11 @@ export function ManagerKpi(){
  const [month,setMonth]=useState(monthNow());
  const d=useManager(month),reports=(d.reports.data??[]).filter(r=>r.report_status==='approved');
  const ops=d.operators.data??[],total=reports.reduce((a,b)=>a+b.accepted_orders,0);
+ const [year,mo]=month.split('-').map(Number);
+ const prevMonth=shiftMonth(year,mo,-1),previous=periodForMonth(prevMonth.y,prevMonth.m);
+ const prevReports=useQuery({queryKey:['manager-prev-month',month],queryFn:async()=>await unwrap(supabase.rpc('get_manager_team_reports',{p_start:previous.start,p_end:previous.end})) as Daily[]});
+ const prevTotal=(prevReports.data??[]).filter(r=>r.report_status==='approved').reduce((a,b)=>a+b.accepted_orders,0);
+ const trend=prevTotal?Math.round((total-prevTotal)/prevTotal*100):null;
  const byDay=new Map<string,number>();for(const r of reports)byDay.set(r.report_date,(byDay.get(r.report_date)??0)+r.accepted_orders);
  const entries=[...byDay].sort((a,b)=>a[0].localeCompare(b[0])).slice(-14);
  const max=Math.max(1,...entries.map(x=>x[1]));
@@ -152,6 +177,7 @@ export function ManagerKpi(){
       action={<input type="month" aria-label="Hisobot oyi" value={month} onChange={e=>setMonth(e.target.value)} className="w-34 rounded-xl border border-neutral-200 bg-white px-2 py-2 text-xs"/>}/>
    <ErrorOrLoading loading={d.reports.isLoading||d.operators.isLoading} error={d.reports.error??d.operators.error} onRetry={()=>{void d.reports.refetch();void d.operators.refetch();}}/>
    <div className="grid grid-cols-2 gap-3"><Stat label="Oylik qabul" value={fmt(total)}/><Stat label="Operatorga o‘rtacha" value={fmt(total/Math.max(1,ops.length))}/><Stat label="Ishlangan kunlar" value={reports.length}/><Stat label="Yashil kunlar" value={reports.filter(r=>r.day_color==='green').length}/></div>
+   <div className={card+' flex items-center justify-between'}><span className="text-sm text-neutral-500">O‘tgan oy bilan solishtirish</span><b className={trend===null?'text-neutral-500':trend>=0?'text-emerald-700':'text-rose-700'}>{trend===null?'Ma’lumot yetarli emas':(trend>0?'+':'')+trend+'%'}</b></div>
    <ColorBar rows={reports}/>
    <section className={card}>
      <h2 className="font-bold">Kunlik qabul dinamikasi</h2>
