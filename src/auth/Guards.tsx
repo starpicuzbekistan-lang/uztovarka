@@ -28,5 +28,6 @@ export function PublicOnly() {
 export function RoleHomeRedirect({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
   if (profile?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (profile?.role === 'manager') return <Navigate to="/manager" replace />;
   return <>{children}</>;
 }

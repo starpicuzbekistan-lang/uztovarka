@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       case 'invite': {
         const email = String(body.email ?? '').trim().toLowerCase();
         const fullName = String(body.full_name ?? '').trim();
-        const role = body.role === 'admin' ? 'admin' : 'operator';
+        const role = body.role === 'admin' || body.role === 'manager' ? body.role : 'operator';
         if (!EMAIL_RE.test(email)) return json({ error: 'Email manzili noto‘g‘ri' }, 400);
         if (!fullName) return json({ error: 'Ism-familiya kiritilishi shart' }, 400);
 
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         // Profil trigger orqali yaratilgan; rol va qo‘shimcha maydonlarni xavfsiz tarzda server o‘rnatadi.
         await admin.from('profiles').update({
           role, full_name: fullName,
-          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : 'Operator'),
+          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Jamoa menejeri' : 'Operator'),
           employee_id: body.employee_id ? String(body.employee_id) : null,
         }).eq('id', data.user.id);
         await audit('user_invited', data.user.id, { email, role });
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
       case 'set_role': {
         const id = String(body.user_id ?? '');
-        const role = body.role === 'admin' ? 'admin' : 'operator';
+        const role = body.role === 'admin' || body.role === 'manager' ? body.role : 'operator';
         if (id === userData.user.id && role !== 'admin') return json({ error: 'O‘z rolingizni pasaytira olmaysiz' }, 400);
         const { data: before } = await admin.from('profiles').select('role').eq('id', id).single();
         await admin.from('profiles').update({ role }).eq('id', id);
