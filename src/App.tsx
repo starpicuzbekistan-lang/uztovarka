@@ -92,7 +92,12 @@ export default function App() {
 
         {/* Menejerning beshta tabli mobil paneli */}
         <Route path="manager" element={<RequireAuth area="manager" />}>
-          <Route path="*" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route index element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="jamoa" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="kpi" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="vazifalar" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="profil" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
+          <Route path="*" element={<Navigate to="/manager" replace />} />
         </Route>
 
         {/* Administrator paneli */}
