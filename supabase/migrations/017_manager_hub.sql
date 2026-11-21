@@ -264,4 +264,78 @@ END $$;
 REVOKE ALL ON FUNCTION public.manager_comment_task(uuid,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.manager_comment_task(uuid,text) TO authenticated;
 
+
+-- Oldingi barcha jamoalarni qaytaruvchi RPC lar menejer roliga yopiladi.
+-- Operator va administrator uchun avvalgi funksiyalar saqlanadi.
+create or replace function public.leaderboard(p_start date, p_end date)
+returns table (operator_id uuid, full_name text, avatar_url text, total_orders bigint, worked_days bigint, green_days bigint)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.full_name, p.avatar_url, coalesce(sum(r.accepted_orders), 0)::bigint,
+    count(r.id)::bigint,
+    count(r.id) filter (where r.accepted_orders >=
+      (select yellow_below from public.kpi_color_thresholds where id=1))::bigint
+  from public.profiles p
+  left join public.daily_reports r on r.operator_id=p.id and r.status='approved'
+    and r.report_date between p_start and p_end
+  where p.is_active and p.role='operator' and public.is_active_user() AND NOT public.is_manager()
+  group by p.id;
+$$;
+create or replace function public.get_team_dashboard(p_month date)
+returns table(team_code text, operator_id uuid, full_name text, avatar_url text,
+              accepted_orders bigint, worked_days bigint, green_days bigint,
+              team_target integer)
+language plpgsql stable security definer set search_path=public as $$
+declare v_month date := date_trunc('month',p_month)::date;
+begin
+ if public.is_manager() then raise exception 'Menejer faqat o‘z jamoasini Manager Hub orqali ko‘radi' using errcode='42501'; end if;
+ if not public.is_active_user() then raise exception 'Ruxsat yo‘q' using errcode='42501'; end if;
+ return query
+ with teamlist(code) as (values ('alpha'::text),('beta'::text)),
+ assignments as (
+   select p.id,p.full_name,p.avatar_url,at.team_code
+   from public.profiles p
+   join lateral (
+     select a.team_code from public.operator_team_assignments a
+     where a.operator_id=p.id and a.effective_month<=v_month
+     order by a.effective_month desc limit 1
+   ) at on true
+   where p.role='operator' and p.is_active
+ ), month_reports as (
+   select r.operator_id,sum(r.accepted_orders)::bigint as total,
+          count(*)::bigint as days,
+          count(*) filter (where r.accepted_orders>=(select yellow_below from public.kpi_color_thresholds where id=1))::bigint as greens
+   from public.daily_reports r
+   left join lateral (
+     select v.daily_target from public.kpi_setting_versions v
+     where v.effective_from<=r.report_date
+       and (v.operator_id=r.operator_id or v.operator_id is null)
+     order by (v.operator_id is not null) desc,v.effective_from desc limit 1
+   ) k on true
+   where r.status='approved' and r.is_demo=false
+     and r.report_date>=v_month and r.report_date<(v_month+interval '1 month')::date
+   group by r.operator_id
+ )
+ select t.code,a.id,a.full_name,a.avatar_url,
+        coalesce(m.total,0),coalesce(m.days,0),coalesce(m.greens,0),g.target_orders
+ from teamlist t
+ left join assignments a on a.team_code=t.code
+ left join month_reports m on m.operator_id=a.id
+ left join public.team_monthly_goals g on g.team_code=t.code and g.month_start=v_month
+ order by t.code,a.full_name;
+end $$;
+create or replace function public.get_gold_verified_operators()
+returns table(operator_id uuid)
+language plpgsql stable security definer set search_path=public as $$
+declare current_month date := date_trunc('month', now() at time zone 'Asia/Tashkent')::date;
+begin
+  if public.is_manager() then raise exception 'Ruxsat yo‘q' using errcode='42501'; end if;
+  if not public.is_active_user() then raise exception 'Ruxsat yo‘q' using errcode='42501'; end if;
+  return query
+    select p.id
+    from public.profiles p
+    where p.role='operator' and p.is_active
+      and (select count(*) from generate_series(1,3) AS gs(month_n)
+             cross join lateral public._gold_month_snapshot(p.id, (current_month - make_interval(months=>gs.month_n))::date) m
+             where m.eligible) = 3;
+end $$;
 COMMIT;

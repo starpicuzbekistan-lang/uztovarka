@@ -36,7 +36,7 @@ export default function Login() {
     setBusy(true);
     try {
       await signIn(email, password);
-      nav('/', { replace: true }); // PublicOnly/RoleHomeRedirect roliga qarab yo‘naltiradi
+      nav('/login', { replace: true }); // PublicOnly profil yuklangach tegishli roldagi sahifaga yo‘naltiradi
     } catch (err) {
       setErrors({ form: humanError(err) });
     } finally {
