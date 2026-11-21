@@ -11,7 +11,7 @@ import { KpiCalendar, STATE_META } from '@/components/KpiCalendar';
 import { MonthNav } from '@/components/MonthNav';
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Field, Input, LoadingBlock, Modal, Notice, PageHeader, StatCard, useToast, EmptyState } from '@/components/ui';
 import { formatAvg, formatNumber, formatUzs } from '@/lib/format';
-import { formatDateUz, formatDateTimeUz, parseIso, tashkentToday } from '@/lib/dates';
+import { formatDateUz, formatDateTimeUz, parseIso, periodForMonth, tashkentToday } from '@/lib/dates';
 import { classifyDay, describeDay, isValidCount, type KpiSettings } from '@/lib/kpi';
 import { validateSubmission } from '@/lib/reports';
 import { humanError, ATTENDANCE_UZ, REPORT_STATUS_UZ } from '@/lib/uz';
@@ -132,6 +132,13 @@ export default function Salary() {
  const thresholdToday=useAcceptanceThreshold(today);
  const missing=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
  const start=`${ym.y}-${String(ym.m).padStart(2,'0')}-01`;
+ const dayColors=useQuery({
+   queryKey:['operator-day-colors',profile?.id,start],enabled:!!profile?.id,
+   queryFn:async()=>await unwrap(supabase.from('operator_day_colors')
+     .select('report_date,color,reason').eq('operator_id',profile!.id)
+     .gte('report_date',start).lte('report_date',periodForMonth(ym.y,ym.m).end))
+     as {report_date:string;color:'green'|'yellow'|'red';reason:string}[],
+ });
  const paymentMonth=useAcceptanceMonth(profile?.id,start);
  const selectedThreshold=useAcceptanceThreshold(sel??today);
  const isCurrent=ym.y===t.y&&ym.m===t.m;
@@ -162,6 +169,8 @@ export default function Salary() {
  const selEntry=sel?calendarEntries.find(e=>e.date===sel):undefined;
  const selInfo=sel?describeDay(selEntry,settings):null;
  const selReport=sel?d.reports.find(rep=>rep.report_date===sel):undefined;
+ const selColor=selReport?.status==='approved'?(dayColors.data??[]).find(x=>x.report_date===sel):undefined;
+ const colorMap=(dayColors.data??[]).reduce<Record<string,'green'|'yellow'|'red'>>((a,x)=>{a[x.report_date]=x.color;return a;},{});
  const selectedMonthMovements=(movements.data??[]).filter(m=>m.created_at.slice(0,7)===start.slice(0,7));
  return <div className="space-y-4">
   <PageHeader title="Oylik to‘lov" />
@@ -206,7 +215,8 @@ export default function Salary() {
   />}
   <Card>
    <h2 className="mb-3 text-lg font-bold">KPI kalendari</h2>
-   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel}/>
+   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel} overrides={colorMap}/>
+   {(dayColors.data??[]).length>0&&<p className="mt-3 text-xs text-neutral-500">Ba’zi kunlar rangi admin tomonidan belgilangan. Pul va balans hisob-kitobi tasdiqlangan qabul soniga asoslanadi.</p>}
   </Card>
   <Card className="space-y-2 p-4">
     <h2 className="text-base font-bold">Topshirilmagan kunlar va jarima</h2>
@@ -261,6 +271,7 @@ export default function Salary() {
      {selReport.status==='pending'&&<Row label="Admin tasdiqlasa" value={selectedThreshold.data===undefined?'—':formatUzs(selReport.accepted_orders>=selectedThreshold.data?selReport.accepted_orders*1000:0)}/>}
     </dl>}
     {selReport?.review_note&&<Notice tone="warn">Administrator izohi: {selReport.review_note}</Notice>}
+    {selColor&&<Notice tone="info">Administrator belgilagan KPI rangi: <b>{KPI_WORD[selColor.color]}</b>. Sabab: {selColor.reason}. Bu oylik va balansni o‘zgartirmaydi.</Notice>}
    </div>}
   </Modal>
   {d.entries.length===0&&!isCurrent&&<EmptyState title="Bu davr uchun ma’lumot yo‘q." />}
