@@ -45,7 +45,8 @@ CREATE POLICY operator_penalty_acknowledgements_insert ON public.operator_penalt
    operator_id=(select auth.uid()) AND public.is_active_user()
    AND EXISTS(SELECT 1 FROM public.profiles p WHERE p.id=(select auth.uid()) AND p.role='operator')
    AND EXISTS(SELECT 1 FROM public.operator_absence_policy a
-      WHERE a.id=true AND a.amount_uzs>0 AND a.amount_uzs=amount_uzs AND a.effective_from=effective_from)
+      WHERE a.id=true AND a.amount_uzs>0 AND a.amount_uzs=operator_penalty_acknowledgements.amount_uzs
+        AND a.effective_from=operator_penalty_acknowledgements.effective_from)
  );
 REVOKE ALL ON public.operator_penalty_acknowledgements FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT ON public.operator_penalty_acknowledgements TO authenticated;
