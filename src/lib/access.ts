@@ -1,18 +1,20 @@
-export type Role = 'admin' | 'operator';
+export type Role = 'admin' | 'manager' | 'operator';
 export interface AccessProfile {
   role: Role;
   isActive: boolean;
 }
-export type Area = 'operator' | 'admin';
+export type Area = 'operator' | 'manager' | 'admin';
 
-/** Marshrut himoyasi uchun yagona qoida (UI darajasida; haqiqiy himoya — RLS). */
+/** Front-end marshrut tekshiruvi. Ma'lumotga haqiqiy ruxsat Supabase RLS'da. */
 export function canAccess(profile: AccessProfile | null | undefined, area: Area): boolean {
-  if (!profile || !profile.isActive) return false;
+  if (!profile?.isActive) return false;
   if (area === 'admin') return profile.role === 'admin';
-  return true;
+  if (area === 'manager') return profile.role === 'manager';
+  return profile.role === 'operator' || profile.role === 'admin';
 }
 
-export function homeFor(profile: AccessProfile | null | undefined): '/login' | '/admin' | '/' {
-  if (!profile || !profile.isActive) return '/login';
-  return profile.role === 'admin' ? '/admin' : '/';
+export function homeFor(profile: AccessProfile | null | undefined): '/login' | '/admin' | '/manager' | '/' {
+  if (!profile?.isActive) return '/login';
+  if (profile.role === 'admin') return '/admin';
+  return profile.role === 'manager' ? '/manager' : '/';
 }

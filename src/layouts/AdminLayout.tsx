@@ -12,6 +12,8 @@ import { useChatUnread } from '@/lib/supportChat';
 const ITEMS: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/admin', label: 'Boshqaruv paneli', icon: LayoutDashboard, end: true },
   { to: '/admin/operatorlar', label: 'Operatorlar', icon: Users },
+  { to: '/admin/menejerlar', label: 'Menejerlar', icon: Users },
+  { to: '/admin/kun-ranglari', label: 'KPI rang limitlari', icon: ClipboardCheck },
   { to: '/admin/chat', label: 'Chat', icon: MessageCircle },
   { to: '/admin/kpi', label: 'KPI va oyliklar', icon: Calculator },
   { to: '/admin/hisobotlar', label: 'Kunlik hisobotlar', icon: ClipboardCheck },

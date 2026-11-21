@@ -8,6 +8,7 @@ import { useWallet, useMissingDays } from '@/lib/wallet';
 import { useAuth } from '@/auth/AuthContext';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useOperatorMonth } from '@/lib/useMonthData';
+import { countColorDays, useDayColorRules } from '@/lib/dayColors';
 import { rankOperators, type RankMode } from '@/lib/leaderboard';
 import { MONTHS_UZ_CAP, tashkentToday, parseIso } from '@/lib/dates';
 import { formatAvg, formatNumber } from '@/lib/format';
@@ -90,6 +91,8 @@ function PerformanceSection() {
   const { profile } = useAuth();
   const { ym, setYm } = useMonthState();
   const q = useOperatorMonth(profile?.id, ym.y, ym.m);
+  const colorRules=useDayColorRules();
+  const visualCounts=countColorDays(q.data?.reports??[],colorRules.data);
   const missed=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
   const r = q.data?.result;
   return (
@@ -100,17 +103,18 @@ function PerformanceSection() {
       {r && (
         <>
           <p className="text-xs text-neutral-500">Faqat administrator tasdiqlagan hisobotlar hisobga olinadi.</p>
+          {colorRules.isError&&<p className="text-xs text-amber-700">KPI rang limitlari yuklanmadi; vaqtincha avvalgi 40/50 mezonlari ishlatilmoqda.</p>}
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Oylik qabul" value={formatNumber(r.approvedOrders)} />
             <StatCard label="Kunlik o‘rtacha" value={r.workedDays ? formatAvg(r.avgPerWorkedDay) : '—'} />
-            <StatCard label="Norma bajarilgan kunlar" value={r.counts.green} />
+            <StatCard label="Norma bajarilgan kunlar" value={visualCounts.green} />
             <StatCard label="Ishlangan kunlar" value={r.workedDays} />
           </div>
           <h3 className="pt-2 text-sm font-semibold text-neutral-600">KPI natijalari</h3>
           <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Yashil kunlar" value={r.counts.green} tone="green" />
-            <StatCard label="Sariq kunlar" value={r.counts.yellow} tone="yellow" />
-            <StatCard label="Qizil kunlar" value={r.counts.red} tone="red" />
+            <StatCard label="Yashil kunlar" value={visualCounts.green} tone="green" />
+            <StatCard label="Sariq kunlar" value={visualCounts.yellow} tone="yellow" />
+            <StatCard label="Qizil kunlar" value={visualCounts.red} tone="red" />
           </div>
           <p className="text-xs text-neutral-500">Kelmagan kunlar: {r.counts.absences} · Ta’tillar: {r.counts.leaves}</p>
           {missed.data&&<Card className="space-y-1 p-3 text-sm">

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { PublicOnly, RequireAuth, RoleHomeRedirect } from './auth/Guards';
 import { OperatorLayout } from './layouts/OperatorLayout';
 import { AdminLayout } from './layouts/AdminLayout';
+import { ManagerLayout } from './layouts/ManagerLayout';
 import { FullPageSpinner } from './components/ui';
 import { supabaseConfigured } from './lib/supabase';
 import { Logo } from './components/Logo';
@@ -23,6 +24,7 @@ import Scripts from './pages/operator/Scripts';
 import ScriptDetail from './pages/operator/ScriptDetail';
 import Profile from './pages/operator/Profile';
 import OperatorBadgesPage from './pages/operator/Badges';
+import OperatorTasks from './pages/operator/Tasks';
 
 // Admin qismi alohida bo‘lak (chunk): operatorlar uni yuklab olmaydi.
 const Overview = lazy(() => import('./pages/admin/Overview'));
@@ -38,6 +40,9 @@ const Payments = lazy(() => import('./pages/admin/Payments'));
 const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminSupportChat = lazy(() => import('./pages/admin/AdminSupportChat'));
+const AdminManagers = lazy(() => import('./pages/admin/Managers'));
+const AdminDayColors = lazy(() => import('./pages/admin/DayColors'));
+import { ManagerHome, ManagerTeam, ManagerKpi, ManagerTasks, ManagerProfile } from './pages/manager/Hub';
 
 function SetupRequired() {
   return (
@@ -83,6 +88,19 @@ export default function App() {
             <Route path="skriptlar/:id" element={<ScriptDetail />} />
             <Route path="profil" element={<Profile />} />
             <Route path="profil/badgelar" element={<OperatorBadgesPage />} />
+            <Route path="vazifalar" element={<OperatorTasks />} />
+          </Route>
+        </Route>
+
+        {/* Menejer paneli: alohida rol, faqat o‘z jamoasi */}
+        <Route path="manager" element={<RequireAuth area="manager" />}>
+          <Route element={<ManagerLayout />}>
+            <Route index element={<ManagerHome />} />
+            <Route path="jamoa" element={<ManagerTeam />} />
+            <Route path="kpi" element={<ManagerKpi />} />
+            <Route path="vazifalar" element={<ManagerTasks />} />
+            <Route path="profil" element={<ManagerProfile />} />
+            <Route path="bildirishnomalar" element={<Notifications />} />
           </Route>
         </Route>
 
@@ -91,6 +109,8 @@ export default function App() {
           <Route element={<AdminLayout />}>
             <Route index element={<Overview />} />
             <Route path="operatorlar" element={<Operators />} />
+            <Route path="menejerlar" element={<AdminManagers />} />
+            <Route path="kun-ranglari" element={<AdminDayColors />} />
             <Route path="chat" element={<AdminSupportChat />} />
             <Route path="kpi" element={<KpiPayroll />} />
             <Route path="hisobotlar" element={<Reports />} />

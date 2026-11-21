@@ -18,8 +18,10 @@ export const STATE_META: Record<State, { label: string; cell: string; icon?: Luc
   none: { label: 'Natija kiritilmagan', cell: 'bg-white text-neutral-500 border-neutral-200' },
 };
 
-export function KpiCalendar({ period, entries, settings, today, selected, onSelect }: {
+export function KpiCalendar({ period, entries, settings, today, selected, onSelect, overrides }: {
   period: Period; entries: DayEntry[]; settings: KpiSettings; today: string; selected?: string | null; onSelect: (d: string) => void;
+  /** Admin tomonidan belgilangan ko‘rinish rangi; ish haqi hisob-kitobiga ta'sir qilmaydi. */
+  overrides?: Record<string, 'green'|'yellow'|'red'>;
 }) {
   const map = new Map(entries.map((e) => [e.date, e]));
   const cells = calendarGrid(period);
@@ -32,7 +34,8 @@ export function KpiCalendar({ period, entries, settings, today, selected, onSele
         {cells.map((date, i) => {
           if (!date) return <span key={`b${i}`} />;
           const d = describeDay(map.get(date), settings);
-          const meta = STATE_META[d.state];
+          const state = ['green','yellow','red'].includes(d.state) && overrides?.[date] ? overrides[date] : d.state;
+          const meta = STATE_META[state];
           const Icon = meta.icon;
           const future = date > today;
           return (

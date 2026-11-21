@@ -13,10 +13,10 @@ type PresenceRecord = { user_id: string; last_login_at: string | null; last_seen
 const isOnline = (p: PresenceRecord | undefined, now: number) => !!p && p.online && !!p.last_seen_at && now - new Date(p.last_seen_at).getTime() < 90_000;
 
 type AdminAction =
-  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator'; position?: string; employee_id?: string }
+  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'manager' | 'operator'; position?: string; employee_id?: string }
   | { action: 'set_active'; user_id: string; active: boolean }
   | { action: 'confirm_signup_email'; user_id: string }
-  | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' }
+  | { action: 'set_role'; user_id: string; role: 'admin' | 'manager' | 'operator' }
   | { action: 'send_reset'; email: string }
   | { action: 'resend_invite'; email: string };
 
@@ -46,6 +46,7 @@ export default function Operators() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [toggle, setToggle] = useState<Profile | null>(null);
   const [roleTarget, setRoleTarget] = useState<Profile | null>(null);
+  const [targetRole, setTargetRole] = useState<'admin'|'manager'|'operator'>('operator');
   const [q, setQ] = useState('');
 
   const list = useQuery({
@@ -78,7 +79,7 @@ export default function Operators() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Operatorlar" subtitle="Operatorlar o‘zlari ro‘yxatdan o‘tishlari mumkin. Admin tasdiqlamaguncha tizimga kira olishmaydi."
+      <PageHeader title="Xodimlar" subtitle="Operatorlar o‘zlari ro‘yxatdan o‘tishlari mumkin. Admin tasdiqlamaguncha tizimga kira olishmaydi."
         action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="h-4 w-4" /> Yangi operator</Button>} />
       <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4">
         <h2 className="font-bold text-amber-950">Tasdiqlashni kutayotgan arizalar · {pendingRegistrations.length}</h2>
@@ -155,7 +156,7 @@ export default function Operators() {
                     <ShieldCheck className="h-4 w-4"/> Kirishdagi email xatosini tuzatish
                   </Button>
                 )}
-                <Button size="sm" variant="outline" disabled={self} onClick={() => setRoleTarget(p)}>
+                <Button size="sm" variant="outline" disabled={self} onClick={() => { setRoleTarget(p); setTargetRole(p.role); }}>
                   <ShieldCheck className="h-4 w-4" /> Rolni o‘zgartirish
                 </Button>
                 <Button size="sm" variant="outline" loading={run.isPending && run.variables?.action === 'send_reset' && (run.variables as any).email === p.email}
@@ -183,20 +184,31 @@ export default function Operators() {
         onClose={() => setToggle(null)}
         onConfirm={() => { if (toggle) run.mutate({ action: 'set_active', user_id: toggle.id, active: !toggle.is_active }, { onSuccess: () => toast('success', 'Holat yangilandi.') }); setToggle(null); }} />
 
-      <ConfirmDialog open={!!roleTarget} danger={roleTarget?.role === 'operator'}
-        title="Rolni o‘zgartirish"
-        message={roleTarget?.role === 'operator'
-          ? `${roleTarget?.full_name} administrator bo‘ladi va barcha boshqaruv ma’lumotlariga (jumladan oyliklarga) kira oladi.`
-          : `${roleTarget?.full_name} oddiy operatorga aylanadi.`}
-        confirmLabel="Tasdiqlash"
-        onClose={() => setRoleTarget(null)}
-        onConfirm={() => { if (roleTarget) run.mutate({ action: 'set_role', user_id: roleTarget.id, role: roleTarget.role === 'admin' ? 'operator' : 'admin' }, { onSuccess: () => toast('success', 'Rol yangilandi.') }); setRoleTarget(null); }} />
+      <Modal open={!!roleTarget} onClose={() => setRoleTarget(null)} title="Xodim rolini o‘zgartirish">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600">{roleTarget?.full_name} uchun yangi rolni tanlang. Administrator barcha moliya va boshqaruv funksiyalariga kira oladi, menejer esa faqat o‘z jamoasini boshqaradi.</p>
+          <Field label="Yangi rol">
+            <Select value={targetRole} onChange={e=>setTargetRole(e.target.value as 'admin'|'manager'|'operator')}>
+              <option value="operator">Operator</option>
+              <option value="manager">Menejer</option>
+              <option value="admin">Administrator</option>
+            </Select>
+          </Field>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setRoleTarget(null)}>Bekor qilish</Button>
+            <Button disabled={!roleTarget||roleTarget.role===targetRole||run.isPending} loading={run.isPending} onClick={()=>{
+              if(!roleTarget)return;
+              run.mutate({action:'set_role',user_id:roleTarget.id,role:targetRole},{onSuccess:()=>toast('success','Rol yangilandi.')});
+              setRoleTarget(null);
+            }}>Saqlash</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
 
 function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'operator' });
+  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'manager' | 'operator' });
   const [errs, setErrs] = useState<{ full_name?: string; email?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
 
@@ -219,7 +231,7 @@ function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Yangi operatorni taklif qilish">
+    <Modal open={open} onClose={onClose} title="Yangi xodimni taklif qilish">
       <form onSubmit={submit} noValidate className="space-y-3">
         {errs.form && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{errs.form}</p>}
         <Field label="Ism-familiya" error={errs.full_name}><Input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} /></Field>
@@ -229,8 +241,9 @@ function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => 
           <Field label="Xodim ID (ixtiyoriy)"><Input value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })} /></Field>
         </div>
         <Field label="Rol">
-          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'operator' })}>
+          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'manager' | 'operator' })}>
             <option value="operator">Operator</option>
+            <option value="manager">Menejer</option>
             <option value="admin">Administrator</option>
           </Select>
         </Field>
