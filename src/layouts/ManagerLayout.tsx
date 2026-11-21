@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import clsx from 'clsx';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import { Bell, ChartNoAxesColumn, House, ListChecks, LogOut, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/auth/AuthContext';
@@ -14,6 +16,7 @@ const NAV: {to:string;label:string;icon:LucideIcon;end?:boolean}[] = [
 
 export function ManagerLayout(){
   const {profile,signOut}=useAuth();
+  const unread=useQuery({queryKey:['manager-notif-unread',profile?.id],enabled:!!profile,refetchInterval:60_000,queryFn:async()=>{const {count}=await supabase.from('notifications').select('id',{count:'exact',head:true}).eq('is_read',false);return count??0;}});
   return <div className="min-h-screen bg-[#F7F8FA] md:pl-64">
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-neutral-200 bg-white p-5 md:flex">
       <div className="mb-2"><Logo/></div>
@@ -33,7 +36,7 @@ export function ManagerLayout(){
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 md:px-8">
         <div className="flex items-center gap-3"><Logo/><span className="hidden text-xs text-neutral-500 sm:inline">Manager Hub</span></div>
         <div className="flex items-center gap-3">
-          <NavLink to="/manager" title="Bosh sahifa" className="rounded-full p-2 hover:bg-neutral-100"><Bell size={19}/></NavLink>
+          <NavLink to="/manager/bildirishnomalar" title="Bildirishnomalar" className="relative rounded-full p-2 hover:bg-neutral-100"><Bell size={19}/>{(unread.data??0)>0&&<span className="absolute -right-0.5 -top-1 rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{unread.data}</span>}</NavLink>
           <NavLink to="/manager/profil" className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-100 text-violet-800" title={profile?.full_name}><UserRound size={19}/></NavLink>
         </div>
       </div>
