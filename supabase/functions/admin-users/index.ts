@@ -63,11 +63,14 @@ Deno.serve(async (req) => {
           return json({ error: exists ? 'Bu email bilan foydalanuvchi allaqachon mavjud' : 'Taklif yuborib bo‘lmadi' }, exists ? 409 : 400);
         }
         // Profil trigger orqali yaratilgan; rol va qo‘shimcha maydonlarni xavfsiz tarzda server o‘rnatadi.
-        await admin.from('profiles').update({
+        const { data: updated, error: profileError } = await admin.from('profiles').update({
           role, full_name: fullName,
           position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Menejer' : 'Operator'),
           employee_id: body.employee_id ? String(body.employee_id) : null,
-        }).eq('id', data.user.id);
+        }).eq('id', data.user.id).select('id').maybeSingle();
+        if (profileError || !updated) {
+          return json({ error: 'Taklif yuborildi, lekin xodim rolini saqlab bo‘lmadi. Admin panelda rolini tekshiring.' }, 500);
+        }
         await audit('user_invited', data.user.id, { email, role });
         return json({ ok: true, user_id: data.user.id });
       }
