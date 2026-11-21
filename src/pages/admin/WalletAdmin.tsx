@@ -50,6 +50,7 @@ export default function WalletAdmin() {
  const refresh=async()=>{
   await Promise.all([
    qc.invalidateQueries({queryKey:['operator-wallet']}),
+   qc.invalidateQueries({queryKey:['admin-main-balances']}),
    qc.invalidateQueries({queryKey:['wallet-admin-approved-sales']}),
    qc.invalidateQueries({queryKey:['wallet-admin-movements']}),
    qc.invalidateQueries({queryKey:['sales-metrics']})

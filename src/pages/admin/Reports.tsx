@@ -49,7 +49,7 @@ export default function Reports() {
       return rows.reduce<Record<string, number>>((a, r) => ({ ...a, [r.status]: (a[r.status] ?? 0) + 1 }), {});
     },
   });
-  const refresh = () => { for (const k of ['admin-reports', 'admin-report-counts', 'admin-overview', 'month']) void qc.invalidateQueries({ queryKey: [k] }); };
+  const refresh = () => { for (const k of ['admin-reports', 'admin-report-counts', 'admin-overview', 'admin-main-balances', 'month']) void qc.invalidateQueries({ queryKey: [k] }); };
 
   const approve = useMutation({
     mutationFn: async (id: string) => { await unwrap(supabase.rpc('review_report', { p_id: id, p_action: 'approve' })); },
