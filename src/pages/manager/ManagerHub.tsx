@@ -7,8 +7,9 @@ import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, Input, Load
 import { useKpiColorThresholds } from '@/lib/kpiColors';
 import { supabase,unwrap } from '@/lib/supabase';
 import { humanError, validatePassword } from '@/lib/uz';
-import { categories, dateTime, dates, overdue, priorities, statuses, useManagerTasks as _unused, useTasks, useTeam, useTeamSetting, useTrend, useNotices, type Task, type TeamOperator, type Period } from '@/lib/manager';
+import { categories, dateTime, dates, overdue, priorities, statuses, useTasks, useTeam, useTeamSetting, useTrend, useNotices, type Task, type TeamOperator, type Period } from '@/lib/manager';
 import clsx from 'clsx';
+import { tashkentToday } from '@/lib/dates';
 
 const nav=[{path:'/manager',label:'Home',icon:House},{path:'/manager/jamoa',label:'Jamoa',icon:UsersRound},{path:'/manager/kpi',label:'KPI',icon:ChartNoAxesColumnIncreasing},{path:'/manager/vazifalar',label:'Vazifalar',icon:ListTodo},{path:'/manager/profil',label:'Profil',icon:UserRound}] as const;
 type Tab='home'|'team'|'kpi'|'tasks'|'profile';
@@ -29,7 +30,7 @@ export default function ManagerHub(){
  const [taskForm,setTaskForm]=useState({operator:'',title:'',description:'',priority:'normal',category:'general',due:'',recurrence:'none'});
  const [feedback,setFeedback]=useState(''),[busy,setBusy]=useState(false);
  const [newPass,setNewPass]=useState(''),[confirmPass,setConfirmPass]=useState(''),[prefsBusy,setPrefsBusy]=useState(false);
- const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Tashkent'});
+ const today=tashkentToday();
  const month=dates('month',today),day=dates('day',today),range=dates(period,today);
  const duration=Math.round((new Date(range.to+'T12:00:00Z').getTime()-new Date(range.from+'T12:00:00Z').getTime())/86400000)+1;
  const previousEnd=new Date(new Date(range.from+'T12:00:00Z').getTime()-86400000);

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Eye, EyeOff, LogOut } from 'lucide-react';
 import OperatorMotivation from '@/components/OperatorMotivation';
@@ -60,6 +61,7 @@ function InfoSection() {
         ))}
       </dl>
       </Card>
+      <Link to="/vazifalar" className="flex min-h-12 items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold">Menejerdan kelgan vazifalar <span className="text-lg">›</span></Link>
       <OperatorMotivation operatorId={profile.id} />
       <ProfileAbsenceSummary operatorId={profile.id} />
     </div>
