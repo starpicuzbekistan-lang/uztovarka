@@ -1,82 +1,94 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RotateCcw, Save } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CircleCheck, Clock3, ShieldCheck, Save, History } from 'lucide-react';
 import { supabase, unwrap } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthContext';
-import { classifyDay, DEFAULT_SETTINGS, pickSettings, type DayStatus } from '@/lib/kpi';
-import { rowToVersion, type SettingsRow } from '@/lib/types';
-import { formatDateUz, periodForMonth, tashkentToday } from '@/lib/dates';
+import { currentColorThresholds, thresholdsAt, useDayColorRules } from '@/lib/dayColors';
+import { tashkentToday } from '@/lib/dates';
+import { Badge, Button, Card, ErrorState, Field, Input, LoadingBlock, PageHeader, useToast } from '@/components/ui';
 import { humanError } from '@/lib/uz';
-import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, LoadingBlock, Modal, PageHeader, Select, Textarea, useToast } from '@/components/ui';
 
-type Daily={id:string;operator_id:string;report_date:string;accepted_orders:number;operator:{full_name:string}|null};
-type Override={operator_id:string;report_date:string;color:DayStatus;reason:string};
-const WORD:Record<DayStatus,string>={green:'Yashil',yellow:'Sariq',red:'Qizil'};
+const numberString=(v:number)=>String(v);
 export default function AdminDayColors(){
- const {profile}=useAuth(),toast=useToast(),qc=useQueryClient();
- const [month,setMonth]=useState(tashkentToday().slice(0,7)),[operator,setOperator]=useState('');
- const [edit,setEdit]=useState<Daily|null>(null),[color,setColor]=useState<DayStatus>('green'),[reason,setReason]=useState('');
- const [year,mo]=month.split('-').map(Number);
- const start=month+'-01',end=periodForMonth(year,mo).end;
- const operators=useQuery({queryKey:['day-color-ops'],queryFn:async()=>await unwrap(supabase.from('profiles').select('id,full_name').eq('role','operator').order('full_name')) as {id:string;full_name:string}[]});
- const reports=useQuery({queryKey:['day-color-reports',month,operator],queryFn:async()=>{
-   let q=supabase.from('daily_reports').select('id,operator_id,report_date,accepted_orders,operator:profiles!daily_reports_operator_id_fkey(full_name)').eq('status','approved').eq('is_demo',false).gte('report_date',start).lte('report_date',end).order('report_date',{ascending:false}).limit(500);
-   if(operator)q=q.eq('operator_id',operator);
-   return await unwrap(q) as unknown as Daily[];
- }});
- const versions=useQuery({queryKey:['day-color-settings'],queryFn:async()=>await unwrap(supabase.from('kpi_setting_versions').select('*')) as SettingsRow[]});
- const overrides=useQuery({queryKey:['day-color-overrides',month],queryFn:async()=>await unwrap(supabase.from('operator_day_colors').select('operator_id,report_date,color,reason').gte('report_date',start).lte('report_date',end)) as Override[]});
- const refresh=()=>{for(const key of ['day-color-overrides','day-color-reports','manager-reports','manager-operators'])void qc.invalidateQueries({queryKey:[key]});};
- const save=useMutation({mutationFn:async()=>{
-   if(!edit||!profile)return;
-   if(reason.trim().length<3)throw Error('Rang o‘zgarish sababini kamida 3 belgi bilan kiriting.');
-   await unwrap(supabase.from('operator_day_colors').upsert({
-     operator_id:edit.operator_id,report_date:edit.report_date,color,reason:reason.trim(),updated_by:profile.id
-   },{onConflict:'operator_id,report_date'}).select());
- },onSuccess:()=>{refresh();setEdit(null);toast('success','Kun rangi saqlandi. Oylik hisobi o‘zgarmadi.');},onError:e=>toast('error',e instanceof Error?e.message:humanError(e))});
- const reset=useMutation({mutationFn:async(row:Daily)=>await unwrap(supabase.from('operator_day_colors').delete().eq('operator_id',row.operator_id).eq('report_date',row.report_date).select()),onSuccess:()=>{refresh();toast('success','Avtomatik rang qayta tiklandi.');},onError:e=>toast('error',humanError(e))});
- const idx=new Map((overrides.data??[]).map(o=>[o.operator_id+'|'+o.report_date,o]));
- const settings=(versions.data??[]).map(rowToVersion);
- function open(row:Daily){const old=idx.get(row.operator_id+'|'+row.report_date);setEdit(row);setColor(old?.color??classifyDay(row.accepted_orders,pickSettings(settings,row.report_date,row.operator_id)??DEFAULT_SETTINGS));setReason(old?.reason??'');}
- return <div className="space-y-4">
-   <PageHeader title="KPI kun ranglari" subtitle="Tasdiqlangan kunlarni yashil, sariq yoki qizil deb belgilash. Rang faqat ko‘rsatkichlar nazorati uchun: oylik va balansga ta’sir qilmaydi."/>
-   <Card className="space-y-3 p-4">
-     <div className="grid gap-3 sm:grid-cols-2"><Field label="Oy"><Input type="month" value={month} onChange={e=>setMonth(e.target.value)}/></Field>
-       <Field label="Operator"><Select value={operator} onChange={e=>setOperator(e.target.value)}><option value="">Barcha operatorlar</option>{(operators.data??[]).map(o=><option key={o.id} value={o.id}>{o.full_name}</option>)}</Select></Field>
-     </div>
-     <p className="text-xs text-neutral-500">Rangni o‘zgartirganda sabab yoziladi va audit tarixida saqlanadi. Tasdiqlanmagan hisobotlarga rang qo‘yilmaydi.</p>
-   </Card>
-   {reports.isLoading?<LoadingBlock rows={4}/>:reports.isError?<ErrorState message={humanError(reports.error)} onRetry={()=>void reports.refetch()}/>:null}
-   {overrides.isError&&<ErrorState message={humanError(overrides.error)} onRetry={()=>void overrides.refetch()}/>}
-   {!reports.isLoading&&!reports.data?.length&&<EmptyState title="Tasdiqlangan kunlar topilmadi" hint="Oy yoki operator filtrini o‘zgartiring."/>}
-   <div className="space-y-2">
-     {(reports.data??[]).map(r=>{
-       const old=idx.get(r.operator_id+'|'+r.report_date);
-       const auto=classifyDay(r.accepted_orders,pickSettings(settings,r.report_date,r.operator_id)??DEFAULT_SETTINGS);
-       const active=old?.color??auto;
-       return <Card key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-         <div className="min-w-0"><p className="font-semibold">{r.operator?.full_name??'Operator'}</p>
-           <p className="text-xs text-neutral-500">{formatDateUz(r.report_date)} · {r.accepted_orders} ta qabul</p>
-         </div>
-         <div className="flex flex-wrap items-center gap-2">
-           <Badge tone={active}>{WORD[active]}</Badge>
-           {old&&<span title={old.reason} className="text-[11px] text-neutral-500">Admin belgisi</span>}
-           <Button size="sm" variant="outline" onClick={()=>open(r)}>Belgilash</Button>
-           {old&&<Button size="sm" variant="ghost" loading={reset.isPending} onClick={()=>reset.mutate(r)} aria-label="Avtomatik rangga qaytarish"><RotateCcw size={16}/></Button>}
-         </div>
-       </Card>;
-     })}
-   </div>
-   <Modal open={!!edit} title="Kun rangini belgilash" onClose={()=>setEdit(null)}>
-     <div className="space-y-3">
-       <p className="text-sm text-neutral-600">{edit?.operator?.full_name} · {edit&&formatDateUz(edit.report_date)} · {edit?.accepted_orders} ta qabul</p>
-       <Field label="KPI rangi"><Select value={color} onChange={e=>setColor(e.target.value as DayStatus)}>
-         <option value="green">Yashil</option><option value="yellow">Sariq</option><option value="red">Qizil</option>
-       </Select></Field>
-       <Field label="Sabab (majburiy)"><Textarea rows={3} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Rangni o‘zgartirish sababi..."/></Field>
-       <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Diqqat: bu nazorat rangidir. Qabul soni, bonus va boshqa moliyaviy hisoblar o‘zgarmaydi.</p>
-       <div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setEdit(null)}>Bekor qilish</Button><Button loading={save.isPending} onClick={()=>save.mutate()}><Save size={16}/> Saqlash</Button></div>
-     </div>
-   </Modal>
- </div>;
+  const {profile}=useAuth(),qc=useQueryClient(),toast=useToast();
+  const today=tashkentToday(),rules=useDayColorRules();
+  const current=currentColorThresholds(rules.data);
+  const [effective,setEffective]=useState(today);
+  const [red,setRed]=useState('40');
+  const [green,setGreen]=useState('50');
+  useEffect(()=>{
+    if (!rules.data) return;
+    const active=thresholdsAt(effective,rules.data);
+    // If a version for the chosen date exists, display its saved values.
+    const exact=rules.data.find(r=>r.effective_from===effective);
+    setRed(numberString((exact??active).red_below));
+    setGreen(numberString((exact??active).green_from));
+  },[rules.data,effective]);
+  const validation=()=>{
+    const r=Number(red),g=Number(green);
+    if(!Number.isSafeInteger(r)||r<1||r>=100000) return 'Sariq boshlanishi 1 dan 99 999 gacha butun son bo‘lishi kerak.';
+    if(!Number.isSafeInteger(g)||g<=r||g>100000) return 'Yashil boshlanishi sariq boshlanishidan katta bo‘lishi kerak.';
+    if(effective<today) return 'O‘tgan sanaga yangi limit kiritib bo‘lmaydi.';
+    return null;
+  };
+  const save=useMutation({
+    mutationFn:async()=>{
+      if(!profile)throw Error('Admin hisob topilmadi.');
+      const e=validation();
+      if(e)throw Error(e);
+      await unwrap(supabase.from('kpi_color_thresholds').upsert({
+        effective_from:effective,red_below:Number(red),green_from:Number(green),updated_by:profile.id,
+      },{onConflict:'effective_from'}).select());
+    },
+    onSuccess:()=>{
+      for(const key of ['kpi-color-thresholds','manager-reports','manager-prev-month','team-dashboard','leaderboard','operator-badges','operator-gold','month','admin-reports'])void qc.invalidateQueries({queryKey:[key]});
+      toast('success','KPI rang limitlari saqlandi. Tasdiqlangan natijalar shu sanadan boshlab yangi chegaralar bilan baholanadi.');
+    },
+    onError:e=>toast('error',e instanceof Error?e.message:humanError(e)),
+  });
+  const redLimit=Number(red),greenLimit=Number(green),valid=!validation();
+  function submit(e:FormEvent){e.preventDefault();save.mutate();}
+  return <div className="space-y-4">
+    <PageHeader title="KPI rang limitlari" subtitle="Admin barcha operatorlar uchun qabul soniga qarab yashil, sariq va qizil kun chegaralarini o‘rnatadi."/>
+    <Card className="space-y-4 p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold">Hozirgi chegara</h2>
+        <Badge tone="yellow">Global sozlama</Badge>
+      </div>
+      {rules.isLoading&&<LoadingBlock rows={2}/>}
+      {rules.isError&&<ErrorState message="KPI limitlari bazadan yuklanmadi. Supabase SQL Editor’da 018_configurable_kpi_color_thresholds.sql migratsiyasini bajaring." onRetry={()=>void rules.refetch()}/>}
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="flex items-center gap-3 rounded-xl bg-red-50 p-3 text-red-800"><ShieldCheck size={20}/><div><p className="text-xs">Qizil kun</p><b>0–{current.red_below-1}</b></div></div>
+        <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3 text-amber-800"><Clock3 size={20}/><div><p className="text-xs">Sariq kun</p><b>{current.red_below}–{current.green_from-1}</b></div></div>
+        <div className="flex items-center gap-3 rounded-xl bg-green-50 p-3 text-green-800"><CircleCheck size={20}/><div><p className="text-xs">Yashil kun</p><b>≥ {current.green_from}</b></div></div>
+      </div>
+    </Card>
+    <form onSubmit={submit} className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-lg font-bold">Chegaralarni o‘zgartirish</h2>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Sariq boshlanadi (ta)"><Input type="number" min="1" max="99999" step="1" inputMode="numeric" value={red} onChange={e=>setRed(e.target.value)} required/></Field>
+        <Field label="Yashil boshlanadi (ta)"><Input type="number" min="2" max="100000" step="1" inputMode="numeric" value={green} onChange={e=>setGreen(e.target.value)} required/></Field>
+        <Field label="Qaysi kundan amal qiladi"><Input type="date" min={today} value={effective} onChange={e=>setEffective(e.target.value)} required/></Field>
+      </div>
+      <p className="text-sm text-neutral-600">Misol: sariq <b>30</b>, yashil <b>50</b> bo‘lsa, qizil 0–29, sariq 30–49, yashil 50 va undan yuqori bo‘ladi.</p>
+      {valid&&<div className="grid gap-2 sm:grid-cols-3 text-center text-sm font-bold">
+        <div className="rounded-xl bg-red-50 px-3 py-3 text-red-800">Qizil: 0–{redLimit-1}</div>
+        <div className="rounded-xl bg-amber-50 px-3 py-3 text-amber-800">Sariq: {redLimit}–{greenLimit-1}</div>
+        <div className="rounded-xl bg-green-50 px-3 py-3 text-green-800">Yashil: {greenLimit}+</div>
+      </div>}
+      {!valid&&<p role="alert" className="text-sm text-rose-700">{validation()}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-lg text-xs text-neutral-500">Chegaralar barcha operatorlar, menejer KPI, reyting va badge'larda ushbu sanadan hisoblanadi. Qabul puli va sotuv balansi formulalari mustaqil.</p>
+        <Button type="submit" loading={save.isPending} disabled={!valid||rules.isError||rules.isLoading}><Save size={16}/> Saqlash</Button>
+      </div>
+    </form>
+    <Card className="space-y-2 p-4 sm:p-5">
+      <h2 className="flex items-center gap-2 font-bold"><History size={18}/> O‘zgarishlar tarixi</h2>
+      {(rules.data??[]).filter(x=>x.effective_from!=='1900-01-01').length===0&&<p className="text-sm text-neutral-500">Hozircha admin yangi chegaralar kiritmagan.</p>}
+      {(rules.data??[]).filter(x=>x.effective_from!=='1900-01-01').map(r=><div key={r.effective_from} className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 py-2 text-sm">
+        <span>{r.effective_from} dan</span>
+        <span className="text-neutral-600">Qizil &lt;{r.red_below} · Sariq {r.red_below}–{r.green_from-1} · Yashil ≥{r.green_from}</span>
+      </div>)}
+    </Card>
+  </div>;
 }
