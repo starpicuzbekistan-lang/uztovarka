@@ -38,6 +38,8 @@ const Payments = lazy(() => import('./pages/admin/Payments'));
 const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminSupportChat = lazy(() => import('./pages/admin/AdminSupportChat'));
+const ManagerHub = lazy(() => import('./pages/manager/ManagerHub'));
+const AssignedTasks = lazy(() => import('./pages/operator/AssignedTasks'));
 
 function SetupRequired() {
   return (
@@ -83,7 +85,13 @@ export default function App() {
             <Route path="skriptlar/:id" element={<ScriptDetail />} />
             <Route path="profil" element={<Profile />} />
             <Route path="profil/badgelar" element={<OperatorBadgesPage />} />
+            <Route path="vazifalar" element={<AssignedTasks />} />
           </Route>
+        </Route>
+
+        {/* Menejerning beshta tabli mobil paneli */}
+        <Route path="manager" element={<RequireAuth area="manager" />}>
+          <Route path="*" element={<ManagerHub />} />
         </Route>
 
         {/* Administrator paneli */}

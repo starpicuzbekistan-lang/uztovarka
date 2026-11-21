@@ -138,9 +138,9 @@ BEGIN
   (SELECT d.status::text FROM public.daily_reports d WHERE d.operator_id=p.id
    AND d.report_date BETWEEN p_from AND p_to AND NOT d.is_demo
    ORDER BY d.report_date DESC LIMIT 1),
-  (SELECT bool_and(g.eligible) FROM generate_series(1,3) n
+  (SELECT bool_and(g.eligible) FROM generate_series(1,3) AS gs(month_n)
    CROSS JOIN LATERAL public._gold_month_snapshot(p.id,
-      (date_trunc('month',(now() AT TIME ZONE 'Asia/Tashkent')::date)-make_interval(months=>n))::date) g)
+      (date_trunc('month',(now() AT TIME ZONE 'Asia/Tashkent')::date)-make_interval(months=>gs.month_n))::date) g)
  FROM public.manager_assignments ma
  JOIN public.profiles p ON p.id=ma.operator_id AND p.role='operator'
  CROSS JOIN limits
