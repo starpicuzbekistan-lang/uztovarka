@@ -1,6 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase, unwrap } from './supabase';
-import { tashkentToday } from './dates';
+/** Stable YYYY-MM-DD date for Uzbekistan, independent of browser locale.
+ * Some browsers format en-CA as MM/DD/YYYY, which can crash Date.toISOString.
+ */
+export function managerToday(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const pick = (key: string) => parts.find(p => p.type === key)?.value ?? '';
+  const year = pick('year'), month = pick('month'), day = pick('day');
+  if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month) || !/^\d{2}$/.test(day)) {
+    // Explicit UTC+5 fallback if the host's Intl timezone data is unavailable.
+    return new Date(now.getTime() + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+  return `${year}-${month}-${day}`;
+}
 export type Period = 'day'|'week'|'month';
 export type TeamOperator = { operator_id:string;full_name:string;avatar_url:string|null;employee_id:string|null;is_active:boolean;today_accepted:number;period_accepted:number;worked_days:number;green_days:number;yellow_days:number;red_days:number;pending_reports:number;absent_days:number;leave_days:number;days_off:number;last_report_date:string|null;last_report_status:string|null;gold_verified:boolean };
 export type Trend = { day:string;approved_accepted:number;approved_reports:number;awaiting_reports:number };
@@ -8,7 +22,8 @@ export type Task = {id:string;manager_id:string;operator_id:string;title:string;
 export type TeamSetting={manager_id:string;name:string;target_accepted:number};
 export type TaskComment={id:string;task_id:string;author_id:string;body:string;created_at:string};
 export type NoticeRow={id:string;title:string;message:string;published_at:string|null};
-export function dates(period:Period,today=tashkentToday()):{from:string;to:string}{
+export function dates(period:Period,today=managerToday()):{from:string;to:string}{
+ if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new Error('Invalid Tashkent day ISO format');
  if(period==='day')return {from:today,to:today};
  if(period==='month')return {from:today.slice(0,7)+'-01',to:today};
  const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7);

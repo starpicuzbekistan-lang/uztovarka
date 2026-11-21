@@ -39,6 +39,7 @@ const AuditLog = lazy(() => import('./pages/admin/AuditLog'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminSupportChat = lazy(() => import('./pages/admin/AdminSupportChat'));
 const ManagerHub = lazy(() => import('./pages/manager/ManagerHub'));
+import ManagerErrorBoundary from './components/ManagerErrorBoundary';
 const AssignedTasks = lazy(() => import('./pages/operator/AssignedTasks'));
 
 function SetupRequired() {
@@ -91,7 +92,7 @@ export default function App() {
 
         {/* Menejerning beshta tabli mobil paneli */}
         <Route path="manager" element={<RequireAuth area="manager" />}>
-          <Route path="*" element={<ManagerHub />} />
+          <Route path="*" element={<ManagerErrorBoundary><ManagerHub /></ManagerErrorBoundary>} />
         </Route>
 
         {/* Administrator paneli */}
