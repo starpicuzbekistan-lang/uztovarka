@@ -12,7 +12,8 @@ import { MonthNav } from '@/components/MonthNav';
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Field, Input, LoadingBlock, Modal, Notice, PageHeader, StatCard, useToast, EmptyState } from '@/components/ui';
 import { formatAvg, formatNumber, formatUzs } from '@/lib/format';
 import { formatDateUz, formatDateTimeUz, parseIso, tashkentToday } from '@/lib/dates';
-import { classifyDay, describeDay, isValidCount, type KpiSettings } from '@/lib/kpi';
+import { describeDay, isValidCount, type KpiSettings } from '@/lib/kpi';
+import { classifyColorDay, countColorDays, useDayColorRules, type KpiColorThreshold } from '@/lib/dayColors';
 import { validateSubmission } from '@/lib/reports';
 import { humanError, ATTENDANCE_UZ, REPORT_STATUS_UZ } from '@/lib/uz';
 import type { Report } from '@/lib/types';
@@ -28,8 +29,8 @@ const SUBMIT_ERR: Record<string, string> = {
 const TONE = { green: 'green', yellow: 'yellow', red: 'red' } as const;
 const KPI_WORD = { green: 'Yashil', yellow: 'Sariq', red: 'Qizil' } as const;
 
-function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, onDone }: {
-  today: string; report: Report | undefined; settings: KpiSettings; acceptanceMin: number | null; attendanceToday?: string; onDone: () => void;
+function TodayCard({ today, report, settings, rules, acceptanceMin, attendanceToday, onDone }: {
+  today: string; report: Report | undefined; settings: KpiSettings; rules: KpiColorThreshold[] | undefined; acceptanceMin: number | null; attendanceToday?: string; onDone: () => void;
 }) {
   const toast = useToast();
   const [value, setValue] = useState('');
@@ -84,7 +85,7 @@ function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, on
           </div>
           {report.status === 'pending' && (
             <p className="text-sm text-neutral-600">
-              <Badge tone={TONE[classifyDay(report.accepted_orders, settings)]}>{KPI_WORD[classifyDay(report.accepted_orders, settings)]} kun</Badge>{' '}
+              <Badge tone={TONE[classifyColorDay(report.accepted_orders,report.report_date,rules)]}>{KPI_WORD[classifyColorDay(report.accepted_orders,report.report_date,rules)]} kun</Badge>{' '}
               {acceptanceMessage(report.accepted_orders)}
             </p>
           )}
@@ -102,7 +103,7 @@ function TodayCard({ today, report, settings, acceptanceMin, attendanceToday, on
           </Field>
           {draftOk && (
             <p className="text-sm text-neutral-600">
-              <Badge tone={TONE[classifyDay(parsed, settings)]}>{KPI_WORD[classifyDay(parsed, settings)]} kun</Badge>{' '}
+              <Badge tone={TONE[classifyColorDay(parsed,today,rules)]}>{KPI_WORD[classifyColorDay(parsed,today,rules)]} kun</Badge>{' '}
               {acceptanceMessage(parsed)}
             </p>
           )}
@@ -128,6 +129,7 @@ export default function Salary() {
  const [ym,setYm]=useState({y:t.y,m:t.m});
  const [sel,setSel]=useState<string|null>(null);
  const q=useOperatorMonth(profile?.id,ym.y,ym.m);
+ const colorRules=useDayColorRules();
  const wallet=useWallet(profile?.id);
  const thresholdToday=useAcceptanceThreshold(today);
  const missing=useMissingDays(profile?.id,`${ym.y}-${String(ym.m).padStart(2,'0')}-01`);
@@ -162,6 +164,9 @@ export default function Salary() {
  const selEntry=sel?calendarEntries.find(e=>e.date===sel):undefined;
  const selInfo=sel?describeDay(selEntry,settings):null;
  const selReport=sel?d.reports.find(rep=>rep.report_date===sel):undefined;
+ const visualCounts=countColorDays(d.reports,colorRules.data);
+ const colorMap=d.reports.filter(x=>x.status==='approved'&&!x.is_demo).reduce<Record<string,'green'|'yellow'|'red'>>((a,x)=>{a[x.report_date]=classifyColorDay(x.accepted_orders,x.report_date,colorRules.data);return a;},{});
+ const displayState=selReport?.status==='approved'&&!selReport.is_demo?classifyColorDay(selReport.accepted_orders,selReport.report_date,colorRules.data):selInfo?.state;
  const selectedMonthMovements=(movements.data??[]).filter(m=>m.created_at.slice(0,7)===start.slice(0,7));
  return <div className="space-y-4">
   <PageHeader title="Oylik to‘lov" />
@@ -199,14 +204,15 @@ export default function Salary() {
    <p className="text-xs text-neutral-500">Tanlangan oy statistikasi. Yuqoridagi balanslar barcha oylar bo‘yicha, yangi hamyon boshlangan sanadan hisoblanadi.</p>
   </Card>}
   {isCurrent&&<TodayCard
-   today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings}
+   today={today} report={d.reports.find(x=>x.report_date===today)} settings={settings} rules={colorRules.data}
    acceptanceMin={thresholdToday.data??null}
    attendanceToday={(()=>{const a=d.attendance.find(x=>x.record_date===today);return a?ATTENDANCE_UZ[a.kind]:undefined;})()}
    onDone={()=>{void qc.invalidateQueries({queryKey:['month']});void qc.invalidateQueries({queryKey:['operator-wallet']});void qc.invalidateQueries({queryKey:['operator-missing-days']});void qc.invalidateQueries({queryKey:['acceptance-month']});}}
   />}
   <Card>
    <h2 className="mb-3 text-lg font-bold">KPI kalendari</h2>
-   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel}/>
+   <KpiCalendar period={d.period} entries={calendarEntries} settings={settings} today={today} selected={sel} onSelect={setSel} overrides={colorMap}/>
+   {colorRules.isError&&<p className="mt-2 text-xs text-amber-700">Rang limitlari bazadan yuklanmadi. Admin Supabase’da 018 migratsiyasini tekshirsin. Hozircha avvalgi 40/50 chegaralari ko‘rsatilmoqda.</p>}
   </Card>
   <Card className="space-y-2 p-4">
     <h2 className="text-base font-bold">Topshirilmagan kunlar va jarima</h2>
@@ -222,9 +228,9 @@ export default function Salary() {
   <div className="grid grid-cols-2 gap-3">
    <StatCard label="Oylik qabul" value={formatNumber(r.approvedOrders)} hint="tasdiqlangan" />
    <StatCard label="Kunlik o‘rtacha" value={formatAvg(r.avgPerWorkedDay)} hint={`${r.workedDays} ish kuni bo‘yicha`} />
-   <StatCard label="Yashil kunlar" value={r.counts.green} tone="green"/>
-   <StatCard label="Sariq kunlar" value={r.counts.yellow} tone="yellow"/>
-   <StatCard label="Qizil kunlar" value={r.counts.red} tone="red"/>
+   <StatCard label="Yashil kunlar" value={visualCounts.green} tone="green"/>
+   <StatCard label="Sariq kunlar" value={visualCounts.yellow} tone="yellow"/>
+   <StatCard label="Qizil kunlar" value={visualCounts.red} tone="red"/>
    <StatCard label="Kelmagan kunlar" value={r.counts.absences}/>
    <StatCard label="Topshirilgan hisobotlar" value={r.counts.reported}/>
    <StatCard label="Tasdiqlangan hisobotlar" value={r.counts.approved}/>
@@ -247,10 +253,10 @@ export default function Salary() {
   <Modal open={!!sel} onClose={()=>setSel(null)} title={sel?formatDateUz(sel):''}>
    {sel&&selInfo&&<div className="space-y-3">
     <div className="flex items-center gap-2">
-     {selInfo.state==='green'?<CheckCircle2 className="h-5 w-5 text-kpi-green"/>:
-      selInfo.state==='pending'?<Clock className="h-5 w-5 text-yellow-600"/>:
+     {displayState==='green'?<CheckCircle2 className="h-5 w-5 text-kpi-green"/>:
+      displayState==='pending'?<Clock className="h-5 w-5 text-yellow-600"/>:
       <Info className="h-5 w-5 text-neutral-500"/>}
-     <span className="font-semibold">{STATE_META[selInfo.state].label}</span>
+     <span className="font-semibold">{STATE_META[displayState??selInfo.state].label}</span>
     </div>
     {selInfo.state==='none'&&<p className="text-sm text-neutral-600">{sel===today?'Bugungi natija hali kiritilmagan.':'Bu kun uchun natija kiritilmagan.'}</p>}
     {selReport&&<dl className="divide-y divide-neutral-100 rounded-xl bg-neutral-50 px-3 text-[15px]">
