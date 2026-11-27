@@ -1,19 +1,20 @@
+/** 'manager' faqat bazadagi tarixiy akkauntlar uchun saqlangan; unga sahifa berilmaydi. */
 export type Role = 'admin' | 'operator' | 'manager';
 export interface AccessProfile {
   role: Role;
   isActive: boolean;
 }
-export type Area = 'operator' | 'admin' | 'manager';
+export type Area = 'operator' | 'admin';
 
-/** Marshrut himoyasi uchun yagona qoida (UI darajasida; haqiqiy himoya — RLS). */
+/** Faqat faol operator va admin sahifaga kira oladi. Serverda ham RLS himoyasi bor. */
 export function canAccess(profile: AccessProfile | null | undefined, area: Area): boolean {
   if (!profile || !profile.isActive) return false;
-  if (area === 'admin') return profile.role === 'admin';
-  if (area === 'manager') return profile.role === 'manager';
-  return profile.role === 'operator';
+  return area === 'admin' ? profile.role === 'admin' : profile.role === 'operator';
 }
 
-export function homeFor(profile: AccessProfile | null | undefined): '/login' | '/admin' | '/manager' | '/' {
+export function homeFor(profile: AccessProfile | null | undefined): '/login' | '/admin' | '/' {
   if (!profile || !profile.isActive) return '/login';
-  return profile.role === 'admin' ? '/admin' : profile.role === 'manager' ? '/manager' : '/';
+  if (profile.role === 'admin') return '/admin';
+  if (profile.role === 'operator') return '/';
+  return '/login';
 }

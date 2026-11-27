@@ -11,7 +11,6 @@ import { rowToVersion, type Attendance, type PayrollPeriod, type Report, type Se
 import { formatDateTimeUz, parseIso, periodForMonth, tashkentToday } from '@/lib/dates';
 import { formatAvg, formatNumber, formatUzs } from '@/lib/format';
 import { humanError, REPORT_STATUS_UZ } from '@/lib/uz';
-import CrmManualDaily from '@/components/CrmManualDaily';
 
 interface Recent { id: string; report_date: string; accepted_orders: number; status: keyof typeof REPORT_STATUS_UZ; submitted_at: string; operator: { full_name: string } | null }
 
@@ -89,7 +88,6 @@ export default function Overview() {
       <PageHeader title="Boshqaruv paneli" />
       <div className="grid gap-2 sm:grid-cols-2"><MonthNav y={ym.y} m={ym.m} onChange={(y, m) => setYm({ y, m })} />
         <Select value={operator} onChange={(e) => setOperator(e.target.value)} aria-label="Operator"><option value="">Barcha operatorlar</option>{(d?.operators ?? []).map((o) => <option key={o.id} value={o.id}>{o.full_name}</option>)}</Select></div>
-      <CrmManualDaily monthStart={period.start} monthEnd={period.end} />
       {colorQuery.isError && <Notice tone="warn">Kun ranglari sozlamasi yuklanmadi. Supabase SQL Editor'da 016 migratsiyasini ishga tushiring. Boshqa ma’lumotlar vaqtincha avvalgi 40/50 chegaralari bilan ko‘rsatiladi.</Notice>}
       {q.isLoading && <LoadingBlock rows={4} />}
       {q.isError && <ErrorState message={humanError(q.error)} onRetry={() => void q.refetch()} />}

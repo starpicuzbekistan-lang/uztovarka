@@ -71,7 +71,8 @@ Deno.serve(async (req) => {
       case 'invite': {
         const email = String(body.email ?? '').trim().toLowerCase();
         const fullName = String(body.full_name ?? '').trim();
-        const role = body.role === 'admin' || body.role === 'manager' ? body.role : 'operator';
+        const role = String(body.role ?? 'operator');
+        if (role !== 'admin' && role !== 'operator') return json({ error: 'Faqat operator va administrator rollari mavjud' }, 400);
         if (!EMAIL_RE.test(email)) return json({ error: 'Email manzili noto‘g‘ri' }, 400);
         if (!fullName) return json({ error: 'Ism-familiya kiritilishi shart' }, 400);
 
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
         // Profil trigger orqali yaratilgan; rol va qo‘shimcha maydonlarni xavfsiz tarzda server o‘rnatadi.
         await admin.from('profiles').update({
           role, full_name: fullName,
-          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : role === 'manager' ? 'Jamoa menejeri' : 'Operator'),
+          position: body.position ? String(body.position) : (role === 'admin' ? 'Administrator' : 'Operator'),
           employee_id: body.employee_id ? String(body.employee_id) : null,
         }).eq('id', data.user.id);
         await audit('user_invited', data.user.id, { email, role });
@@ -103,6 +104,7 @@ Deno.serve(async (req) => {
           .select('role,is_active,signup_requested_at').eq('id', id).maybeSingle();
         if (targetErr || !target) return json({ error: 'Operator profili topilmadi' }, 404);
 
+        if (active && target.role !== 'operator' && target.role !== 'admin') return json({ error: 'Eski menejer hisobini faollashtirish mumkin emas' }, 400);
         const approvalOfSignup = active && target.role === 'operator' && !!target.signup_requested_at;
         const authChange = approvalOfSignup
           ? { ban_duration: 'none', email_confirm: true }
@@ -140,7 +142,8 @@ Deno.serve(async (req) => {
 
       case 'set_role': {
         const id = String(body.user_id ?? '');
-        const role = body.role === 'admin' || body.role === 'manager' ? body.role : 'operator';
+        const role = String(body.role ?? 'operator');
+        if (role !== 'admin' && role !== 'operator') return json({ error: 'Faqat operator va administrator rollari mavjud' }, 400);
         if (id === userData.user.id && role !== 'admin') return json({ error: 'O‘z rolingizni pasaytira olmaysiz' }, 400);
         const { data: before, error: beforeErr } = await admin.from('profiles').select('role').eq('id', id).maybeSingle();
         if (beforeErr) return json({ error: 'Xodim ma’lumotini yuklab bo‘lmadi: ' + beforeErr.message }, 500);

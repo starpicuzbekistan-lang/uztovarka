@@ -7,17 +7,16 @@ import { Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Fie
 import { humanError, ROLE_UZ, validateEmail } from '@/lib/uz';
 import { formatDateUz, formatDateTimeUz } from '@/lib/dates';
 import type { Profile } from '@/lib/types';
-import ManagerAssignmentsAdmin from './ManagerAssignmentsAdmin';
 
 type PresenceRecord = { user_id: string; last_login_at: string | null; last_seen_at: string | null; online: boolean };
 
 const isOnline = (p: PresenceRecord | undefined, now: number) => !!p && p.online && !!p.last_seen_at && now - new Date(p.last_seen_at).getTime() < 90_000;
 
 type AdminAction =
-  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator' | 'manager'; position?: string; employee_id?: string }
+  | { action: 'invite'; email: string; full_name: string; role: 'admin' | 'operator'; position?: string; employee_id?: string }
   | { action: 'set_active'; user_id: string; active: boolean }
   | { action: 'confirm_signup_email'; user_id: string }
-  | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' | 'manager' }
+  | { action: 'set_role'; user_id: string; role: 'admin' | 'operator' }
   | { action: 'send_reset'; email: string }
   | { action: 'resend_invite'; email: string };
 
@@ -47,7 +46,7 @@ export default function Operators() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [toggle, setToggle] = useState<Profile | null>(null);
   const [roleTarget, setRoleTarget] = useState<Profile | null>(null);
-  const [newRole, setNewRole] = useState<'admin' | 'operator' | 'manager'>('operator');
+  const [newRole, setNewRole] = useState<'admin' | 'operator'>('operator');
   const [q, setQ] = useState('');
 
   const list = useQuery({
@@ -74,7 +73,8 @@ export default function Operators() {
     onError: (e) => toast('error', errText(e)),
   });
 
-  const rows = (list.data ?? []).filter((p) => `${p.full_name} ${p.email ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const rows = (list.data ?? []).filter((p) => (p.role === 'admin' || p.role === 'operator') &&
+    `${p.full_name} ${p.email ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
   const onlineCount = (presence.data ?? []).filter(p => isOnline(p, clock)).length;
   const pendingRegistrations=(list.data??[]).filter(p=>p.role==='operator'&&!p.is_active&&p.signup_requested_at&&!p.signup_reviewed_at);
 
@@ -96,7 +96,6 @@ export default function Operators() {
           </Button>
         </div>)}
       </section>
-      <ManagerAssignmentsAdmin />
       <Input placeholder="Ism yoki email bo‘yicha qidirish" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
         <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-neutral-200">
@@ -158,7 +157,7 @@ export default function Operators() {
                     <ShieldCheck className="h-4 w-4"/> Kirishdagi email xatosini tuzatish
                   </Button>
                 )}
-                <Button size="sm" variant="outline" disabled={self} onClick={() => { setRoleTarget(p); setNewRole(p.role); }}>
+                <Button size="sm" variant="outline" disabled={self} onClick={() => { setRoleTarget(p); setNewRole(p.role === 'admin' ? 'admin' : 'operator'); }}>
                   <ShieldCheck className="h-4 w-4" /> Rolni o‘zgartirish
                 </Button>
                 <Button size="sm" variant="outline" loading={run.isPending && run.variables?.action === 'send_reset' && (run.variables as any).email === p.email}
@@ -188,11 +187,10 @@ export default function Operators() {
 
       <Modal open={!!roleTarget} onClose={() => setRoleTarget(null)} title="Xodim rolini o‘zgartirish">
         <div className="space-y-4">
-          <p className="text-sm text-neutral-600">{roleTarget?.full_name}: yangi rolni tanlang. Administrator barcha ma’lumotlarga kiradi, menejer esa faqat biriktirilgan jamoani boshqaradi.</p>
+          <p className="text-sm text-neutral-600">{roleTarget?.full_name}: yangi rolni tanlang. Faqat administrator yoki operator rolini tanlash mumkin.</p>
           <Field label="Rol">
-            <Select value={newRole} onChange={e => setNewRole(e.target.value as 'admin'|'manager'|'operator')}>
+            <Select value={newRole} onChange={e => setNewRole(e.target.value as 'admin'|'operator')}>
               <option value="operator">Operator</option>
-              <option value="manager">Menejer</option>
               <option value="admin">Administrator</option>
             </Select>
           </Field>
@@ -213,7 +211,7 @@ export default function Operators() {
 }
 
 function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'operator' | 'manager' });
+  const [f, setF] = useState({ full_name: '', email: '', position: 'Operator', employee_id: '', role: 'operator' as 'admin' | 'operator' });
   const [errs, setErrs] = useState<{ full_name?: string; email?: string; form?: string }>({});
   const [busy, setBusy] = useState(false);
 
@@ -246,9 +244,8 @@ function InviteModal({ open, onClose, onDone }: { open: boolean; onClose: () => 
           <Field label="Xodim ID (ixtiyoriy)"><Input value={f.employee_id} onChange={(e) => setF({ ...f, employee_id: e.target.value })} /></Field>
         </div>
         <Field label="Rol">
-          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'operator' | 'manager' })}>
+          <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as 'admin' | 'operator' })}>
             <option value="operator">Operator</option>
-            <option value="manager">Menejer</option>
             <option value="admin">Administrator</option>
           </Select>
         </Field>
