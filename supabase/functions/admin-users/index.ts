@@ -16,21 +16,29 @@ function corsHeaders(req: Request): Record<string, string> {
     try {
       const incoming = new URL(origin);
       const configured = Deno.env.get('SITE_URL');
+      const additional = (Deno.env.get('ALLOWED_ORIGINS') ?? '').split(',').map(v => v.trim()).filter(Boolean);
       const siteOrigin = configured ? new URL(configured).origin : '';
-      const validProtocol = incoming.protocol === 'https:' || (incoming.hostname === 'localhost' && incoming.protocol === 'http:');
-      trusted = validProtocol && (
+      // Always compare full origins (scheme + hostname + port), not arbitrary *.netlify.app hosts.
+      const fixedOrigins = [
+        'https://uztovarka.netlify.app',
+        'https://silver-entremet-54da02.netlify.app',
+      ];
+      const isPreview = /^deploy-preview-\\d+--silver-entremet-54da02\\.netlify\\.app$/.test(incoming.hostname)
+        && incoming.protocol === 'https:' && !incoming.port;
+      const isLocal = incoming.hostname === 'localhost' && incoming.protocol === 'http:'
+        && ['5173', '4173'].includes(incoming.port);
+      trusted = fixedOrigins.includes(incoming.origin) ||
         incoming.origin === siteOrigin ||
-        incoming.hostname === 'silver-entremet-54da02.netlify.app' ||
-        /^deploy-preview-\d+--silver-entremet-54da02\.netlify\.app$/.test(incoming.hostname) ||
-        (incoming.hostname === 'localhost' && ['5173', '4173'].includes(incoming.port))
-      );
+        additional.includes(incoming.origin) ||
+        isPreview || isLocal;
     } catch { trusted = false; }
   }
   return {
     ...(trusted && origin ? { 'Access-Control-Allow-Origin': origin } : {}),
     'Vary': 'Origin',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '600',
   };
 }
 
