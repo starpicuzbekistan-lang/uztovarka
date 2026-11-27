@@ -23,7 +23,7 @@ function corsHeaders(req: Request): Record<string, string> {
         'https://uztovarka.netlify.app',
         'https://silver-entremet-54da02.netlify.app',
       ];
-      const isPreview = /^deploy-preview-\\d+--silver-entremet-54da02\\.netlify\\.app$/.test(incoming.hostname)
+      const isPreview = /^deploy-preview-\d+--silver-entremet-54da02\.netlify\.app$/.test(incoming.hostname)
         && incoming.protocol === 'https:' && !incoming.port;
       const isLocal = incoming.hostname === 'localhost' && incoming.protocol === 'http:'
         && ['5173', '4173'].includes(incoming.port);
